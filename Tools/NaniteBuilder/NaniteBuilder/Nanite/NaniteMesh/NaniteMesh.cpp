@@ -1,6 +1,7 @@
 #include "NaniteMesh.h"
 
 #include <iostream>
+#include <fstream>
 
 #include <assimp/Importer.hpp>
 #include <assimp/Exporter.hpp>
@@ -9,6 +10,7 @@
 
 #include "../../Utils/Utils.h"	
 #include "../Builder/NaniteBuilder.h"
+#include "Geometry/Cluster.h"
 
 namespace nanite
 {
@@ -17,30 +19,39 @@ namespace nanite
 		int nparts = static_cast<int>(std::ceilf(NumTriangles() / (float)leafTriThreshold));
 		if (nparts < 1) return true;
 
-		std::vector<int32_t> triParts;
-		int edgeCut = NaniteBuilder::BuildGraph(*this, nparts, triParts);
+		std::vector<Cluster> clusters;
+		int edgeCut = NaniteBuilder::BuildGraph(*this, nparts, clusters);
 
 		std::cout << "METIS partitioning succeeded. Edge cut = " << edgeCut << "\n";
-
-		std::vector<int> numElementsPerPart(nparts, 0);
-		for (int i = 0; i < NumTriangles(); ++i)
-		{
-			int part = triParts[i];
-			numElementsPerPart[part]++;
-		}
-
 		std::cout << "Number of triangles in each partition:\n";
-		for (int i = 0; i < nparts; ++i)
+		for (int i = 0; i < clusters.size(); ++i)
 		{
-			std::cout << "Partition " << i << ": " << numElementsPerPart[i] << " triangles\n";
+			std::cout << "Partition " << i << ": " << clusters[i].NumTriangles << " triangles\n";
 		}
 
-		// set vertex color from partition
-		for (int i = 0; i < NumTriangles(); ++i)
+		// set vertex color from its cluster
+		for (int i = 0; i < clusters.size(); ++i)
 		{
-			int part = triParts[i];
-			mTriangles[i].Color = HSVtoRGB(std::fmod(part / 6.f, 1.f), 1.f, 1.f);
+			const Cluster& cluster = clusters[i];
+			FVector3 color = HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
+			for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
+			{
+				mTriangles[j].Color = color;
+			}
 		}
+
+		std::ofstream file("../../../Nanite/Assets/Resources/metadata.txt");
+		if (!file.is_open()) return false;
+		for (int i = 0; i < clusters.size(); ++i)
+		{
+			const Cluster& cluster = clusters[i];
+			const AABB& aabb = cluster.Bounds;
+			FVector3 color = mTriangles[cluster.StartIndex].Color;
+			file << aabb.Min.x << " " << aabb.Min.y << " " << aabb.Min.z << " "
+				<< aabb.Max.x << " " << aabb.Max.y << " " << aabb.Max.z << " " 
+				<< color.x << " " << color.y << " " << color.z << "\n";
+		}
+		file.close();
 
 		return true;
 	}
@@ -48,8 +59,8 @@ namespace nanite
 	bool NaniteMesh::LoadFromFile(const std::string& path)
 	{
 		Assimp::Importer importer;
-		mScene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
-		if (!mScene || !mScene->HasMeshes())
+		const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+		if (!scene || !scene->HasMeshes())
 		{
 			std::cerr << "Failed to load model\n";
 			return false;
@@ -58,11 +69,15 @@ namespace nanite
 		{
 			// Extract the name from the file path
 			size_t lastSlash = path.find_last_of("/\\");
+			size_t lastDot = path.find_last_of('.');
 			if (lastSlash != std::string::npos)
-				mName = path.substr(lastSlash + 1);
+			{
+				mName = path.substr(lastSlash + 1, lastDot - lastSlash - 1); // Remove extension
+				mExtension = path.substr(lastDot + 1);
+			}
 		}
 
-		const aiMesh* mesh = mScene->mMeshes[0];
+		const aiMesh* mesh = scene->mMeshes[0];
 		const int numVertices = mesh->mNumVertices;
 		const int numFaces = mesh->mNumFaces;
 		const int numIndices = numFaces * 3;
@@ -145,7 +160,7 @@ namespace nanite
 		outScene->mRootNode = new aiNode();
 
 		outScene->mMaterials = new aiMaterial * [1];
-		outScene->mMaterials[0] = mScene->mNumMaterials > 0 ? mScene->mMaterials[0] : new aiMaterial();
+		outScene->mMaterials[0] = new aiMaterial();
 		outScene->mNumMaterials = 1;
 
 		aiMesh* mesh = new aiMesh();
@@ -183,6 +198,85 @@ namespace nanite
 			mesh->mColors[0][triangle.i0] = color;
 			mesh->mColors[0][triangle.i1] = color;
 			mesh->mColors[0][triangle.i2] = color;
+		}
+
+		outScene->mNumMeshes = 1;
+		outScene->mMeshes = new aiMesh * [1];
+		outScene->mMeshes[0] = mesh;
+
+		outScene->mRootNode->mNumMeshes = 1;
+		outScene->mRootNode->mMeshes = new unsigned int[1];
+		outScene->mRootNode->mMeshes[0] = 0;
+
+		Assimp::Exporter exporter;
+		aiReturn ret = exporter.Export(outScene, "fbx", path + mName + ".fbx");
+
+		if (ret == AI_SUCCESS)
+		{
+			std::cout << "Export succeeded!\n";
+			return true;
+		}
+		else
+		{
+			std::cerr << "Export failed: " << exporter.GetErrorString() << "\n";
+			return false;
+		}
+	}
+
+	bool NaniteMesh::SaveToFbx(const std::string& path) const
+	{
+		std::vector<FVector3> outVertices;
+		std::vector<uint32_t> outIndices;
+		std::vector<FVector3> outNormals;
+		std::vector<FVector3> outColors;
+
+		for (int i = 0; i < NumTriangles(); ++i)
+		{
+			const Triangle& triangle = mTriangles[i];
+			outVertices.push_back(mVertices[triangle.i0]);
+			outVertices.push_back(mVertices[triangle.i1]);
+			outVertices.push_back(mVertices[triangle.i2]);
+			outIndices.push_back(3 * i + 0);
+			outIndices.push_back(3 * i + 1);
+			outIndices.push_back(3 * i + 2);
+			outNormals.push_back(triangle.Normal);
+			outNormals.push_back(triangle.Normal);
+			outNormals.push_back(triangle.Normal);
+			outColors.push_back(triangle.Color);
+			outColors.push_back(triangle.Color);
+			outColors.push_back(triangle.Color);
+		}
+
+		aiScene* outScene = new aiScene();
+		outScene->mRootNode = new aiNode();
+
+		outScene->mMaterials = new aiMaterial * [1];
+		outScene->mMaterials[0] = new aiMaterial();
+		outScene->mNumMaterials = 1;
+
+		aiMesh* mesh = new aiMesh();
+		mesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
+		mesh->mMaterialIndex = 0;
+
+		mesh->mNumVertices = static_cast<unsigned int>(outVertices.size());
+		mesh->mVertices = new aiVector3D[mesh->mNumVertices];
+		mesh->mNormals = new aiVector3D[mesh->mNumVertices];
+		mesh->mColors[0] = new aiColor4D[mesh->mNumVertices];
+		for (int i = 0; i < static_cast<int>(mesh->mNumVertices); ++i) 
+		{
+			mesh->mVertices[i] = aiVector3D(outVertices[i].x, outVertices[i].y, outVertices[i].z);
+			mesh->mNormals[i] = aiVector3D(outNormals[i].x, outNormals[i].y, outNormals[i].z);
+			mesh->mColors[0][i] = aiColor4D(outColors[i].x, outColors[i].y, outColors[i].z, 1.0f);
+		}
+		mesh->mNumFaces = static_cast<unsigned int>(NumTriangles());
+		mesh->mFaces = new aiFace[mesh->mNumFaces];
+		for (int i = 0; i < static_cast<int>(mesh->mNumFaces); ++i)
+		{
+			mesh->mFaces[i].mNumIndices = 3;
+			mesh->mFaces[i].mIndices = new unsigned int[3];
+			mesh->mFaces[i].mIndices[0] = outIndices[3 * i + 0];
+			mesh->mFaces[i].mIndices[1] = outIndices[3 * i + 1];
+			mesh->mFaces[i].mIndices[2] = outIndices[3 * i + 2];
 		}
 
 		outScene->mNumMeshes = 1;

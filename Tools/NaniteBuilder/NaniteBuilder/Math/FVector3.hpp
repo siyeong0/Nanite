@@ -26,7 +26,7 @@ namespace nanite
 		static inline FVector3 UnitY() { return FVector3{ 0.f, 1.f, 0.f }; }
 		static inline FVector3 UnitZ() { return FVector3{ 0.f, 0.f, 1.f }; }
 		static inline FVector3 FMaxValue() { constexpr float v = std::numeric_limits<float>::max();  return FVector3{ v,v,v, }; }
-		static inline FVector3 FMinValue() { constexpr float v = std::numeric_limits<float>::min();  return FVector3{ v,v,v, }; }
+		static inline FVector3 FMinValue() { constexpr float v = std::numeric_limits<float>::lowest();  return FVector3{ v,v,v, }; }
 		static inline FVector3 Up() { return FVector3{ 0.f, 1.f, 0.f }; }
 		static inline FVector3 Down() { return FVector3{ 0.f, -1.f, 0.f }; }
 		static inline FVector3 Right() { return FVector3{ 1.f, 0.f, 0.f }; }

@@ -1,21 +1,25 @@
 #include "NaniteBuilder.h"
 
+#include <cassert>
 namespace nanite
 {
-	int NaniteBuilder::BuildGraph(const NaniteMesh& mesh, int nparts, std::vector<int32_t>& partOut)
+	int NaniteBuilder::BuildGraph(NaniteMesh& mesh, int nparts, std::vector<Cluster>& outClusters)
 	{
+		std::vector<Triangle>& triangles = mesh.GetTrianglesRef();
+		int numTriangles = mesh.NumTriangles();
+
 		// build triangle graph
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangles;
-		edgeToTriangles.reserve(mesh.NumTriangles() * 3);
+		edgeToTriangles.reserve(numTriangles * 3);
 
-		for (const Triangle& triangle : mesh.GetTriangles())
+		for (const Triangle& triangle : triangles)
 		{
 			uint32_t i0 = triangle.i0;
 			uint32_t i1 = triangle.i1;
 			uint32_t i2 = triangle.i2;
-			edgeToTriangles[Edge(i0, i1)].push_back(static_cast<idx_t>(&triangle - &mesh.GetTriangles()[0]));
-			edgeToTriangles[Edge(i1, i2)].push_back(static_cast<idx_t>(&triangle - &mesh.GetTriangles()[0]));
-			edgeToTriangles[Edge(i2, i0)].push_back(static_cast<idx_t>(&triangle - &mesh.GetTriangles()[0]));
+			edgeToTriangles[Edge(i0, i1)].push_back(static_cast<idx_t>(&triangle - &triangles[0]));
+			edgeToTriangles[Edge(i1, i2)].push_back(static_cast<idx_t>(&triangle - &triangles[0]));
+			edgeToTriangles[Edge(i2, i0)].push_back(static_cast<idx_t>(&triangle - &triangles[0]));
 		}
 
 		std::vector<std::set<idx_t>> triangleAdj(mesh.NumTriangles());
@@ -58,12 +62,12 @@ namespace nanite
 		METIS_SetDefaultOptions(options);
 		options[METIS_OPTION_NUMBERING] = 0;
 
-		idx_t numTriangles = mesh.NumTriangles();
 		idx_t objval;
+		std::vector<idx_t> partOut;
 		partOut.resize(numTriangles);
 
 		int result = METIS_PartGraphKway(
-			&numTriangles, &ncon, xadj.data(), adjncy.data(),
+			static_cast<idx_t*>(&numTriangles), &ncon, xadj.data(), adjncy.data(),
 			vwgt, vsize, adjwgt, &nparts,
 			tpwgts.data(), &ubvec, options, &objval, partOut.data());
 
@@ -72,6 +76,44 @@ namespace nanite
 			std::cerr << "METIS partitioning failed with error code " << result << "\n";
 			return -1;
 		}
+
+		// reorder and cluster triangles based on partitions
+		std::vector<std::vector<Triangle>> reorederBuffer(nparts);
+		for (int i = 0; i < numTriangles; ++i)
+		{
+			reorederBuffer[partOut[i]].push_back(triangles[i]);
+		}
+
+		// reorder and cluster triangles
+		triangles.clear();
+		outClusters.clear();
+		outClusters.resize(nparts);
+		for (int i = 0; i < nparts; ++i)
+		{
+			triangles.insert(triangles.end(), reorederBuffer[i].begin(), reorederBuffer[i].end());
+			outClusters[i].StartIndex = static_cast<int>(triangles.size() - reorederBuffer[i].size());
+			outClusters[i].NumTriangles = static_cast<int>(reorederBuffer[i].size());
+			outClusters[i].Bounds = ComputeBoundingBox(mesh.GetVertices(), triangles, outClusters[i].StartIndex, outClusters[i].NumTriangles);
+		}
+
 		return static_cast<int>(objval);
+	}
+
+	AABB NaniteBuilder::ComputeBoundingBox(
+		const std::vector<FVector3>& vertices, 
+		const std::vector<Triangle>& triangles, 
+		int start, int count)
+	{
+		assert(start >= 0 && count > 0 && start + count <= static_cast<int>(triangles.size()));
+		
+		AABB bbox;
+		for (int i = start; i < start + count; ++i)
+		{
+			const Triangle& triangle = triangles[i];
+			bbox.Encapsulate(vertices[triangle.i0]);
+			bbox.Encapsulate(vertices[triangle.i1]);
+			bbox.Encapsulate(vertices[triangle.i2]);
+		}
+		return bbox;
 	}
 }

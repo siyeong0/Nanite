@@ -24,14 +24,18 @@ namespace nanite
 
 		bool LoadFromFile(const std::string& path);
 		bool SaveToFile(const std::string& path) const;
+		bool SaveToFbx(const std::string& path) const;
 
+		std::vector<FVector3>& GetVerticesRef() { return mVertices; }
 		const std::vector<FVector3>& GetVertices() const { return mVertices; }
+		std::vector<Triangle>& GetTrianglesRef() { return mTriangles; }
 		const std::vector<Triangle>& GetTriangles() const { return mTriangles; }
 
 		inline int NumTriangles() const { return static_cast<int>(mTriangles.size()); }
 		inline int NumVertices() const { return static_cast<int>(mVertices.size()); }
 
 	private:
+
 		static void mergeVertices(
 			const std::vector<FVector3>& inVertices, const std::vector<uint32_t>& inIndices,
 			std::vector<FVector3>& outVertices, std::vector<uint32_t>& outIndices);
@@ -41,6 +45,6 @@ namespace nanite
 		std::vector<Triangle> mTriangles;
 
 		std::string mName;
-		const aiScene* mScene = nullptr;
+		std::string mExtension;
 	};
 }

@@ -18,16 +18,16 @@ namespace nanite
 		inline FVector3 Extents() const { return Size() * 0.5f; }
 		inline float Volume() const { FVector3 size = Size(); return size.x * size.y * size.z; }
 
-		inline void Encapsulte(const FVector3& point)
+		inline void Encapsulate(const FVector3& point)
 		{
-			FVector3::Min(Min, point);
-			FVector3::Max(Max, point);
+			Min = FVector3::Min(Min, point);
+			Max = FVector3::Max(Max, point);
 		}
 
 		inline void Encapsulate(const AABB& other)
 		{
-			Encapsulte(other.Min);
-			Encapsulte(other.Max);
+			Encapsulate(other.Min);
+			Encapsulate(other.Max);
 		}
 	};
 }
