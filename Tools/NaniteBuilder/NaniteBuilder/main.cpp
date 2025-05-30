@@ -6,7 +6,7 @@ int main(void)
 {
 	std::cout << "NaniteBuilder is running!" << std::endl;
 
-	const char* modelFile = "../../../Resources/Sphere.obj";
+	const char* modelFile = "../../../Resources/Dragon_80K.obj";
 	const char* outputPath = "../../../Nanite/Assets/Resources/";
 
 	nanite::NaniteMesh mesh;

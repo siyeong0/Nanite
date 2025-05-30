@@ -145,7 +145,7 @@ namespace nanite
 		outScene->mRootNode = new aiNode();
 
 		outScene->mMaterials = new aiMaterial * [1];
-		outScene->mMaterials[0] = mScene->mMaterials ? mScene->mMaterials[0] : new aiMaterial();
+		outScene->mMaterials[0] = mScene->mNumMaterials > 0 ? mScene->mMaterials[0] : new aiMaterial();
 		outScene->mNumMaterials = 1;
 
 		aiMesh* mesh = new aiMesh();

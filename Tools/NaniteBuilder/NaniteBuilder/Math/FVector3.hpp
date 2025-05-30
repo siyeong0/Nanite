@@ -1,5 +1,7 @@
 #pragma once
 #include <cmath>
+#include <numeric>
+#include <limits>
 
 namespace nanite
 {
@@ -18,19 +20,19 @@ namespace nanite
 		FVector3(const FVector3& other);
 		FVector3& operator=(const FVector3& other);
 
-		static FVector3 Zero() { return FVector3{ 0.f, 0.f, 0.f }; }
-		static FVector3 One() { return FVector3{ 1.f, 1.f, 1.f }; }
-		static FVector3 UnitX() { return FVector3{ 1.f, 0.f, 0.f }; }
-		static FVector3 UnitY() { return FVector3{ 0.f, 1.f, 0.f }; }
-		static FVector3 UnitZ() { return FVector3{ 0.f, 0.f, 1.f }; }
-		static FVector3 FMaxValue() { return FVector3{ FLT_MAX, FLT_MAX, FLT_MAX }; }
-		static FVector3 FMinValue() { return FVector3{ -FLT_MAX, -FLT_MAX, -FLT_MAX }; }
-		static FVector3 Up() { return FVector3{ 0.f, 1.f, 0.f }; }
-		static FVector3 Down() { return FVector3{ 0.f, -1.f, 0.f }; }
-		static FVector3 Right() { return FVector3{ 1.f, 0.f, 0.f }; }
-		static FVector3 Left() { return FVector3{ -1.f, 0.f, 0.f }; }
-		static FVector3 Forward() { return FVector3{ 0.f, 0.f, 1.f }; }
-		static FVector3 Backward() { return FVector3{ 0.f, 0.f, -1.f }; }
+		static inline FVector3 Zero() { return FVector3{ 0.f, 0.f, 0.f }; }
+		static inline FVector3 One() { return FVector3{ 1.f, 1.f, 1.f }; }
+		static inline FVector3 UnitX() { return FVector3{ 1.f, 0.f, 0.f }; }
+		static inline FVector3 UnitY() { return FVector3{ 0.f, 1.f, 0.f }; }
+		static inline FVector3 UnitZ() { return FVector3{ 0.f, 0.f, 1.f }; }
+		static inline FVector3 FMaxValue() { constexpr float v = std::numeric_limits<float>::max();  return FVector3{ v,v,v, }; }
+		static inline FVector3 FMinValue() { constexpr float v = std::numeric_limits<float>::min();  return FVector3{ v,v,v, }; }
+		static inline FVector3 Up() { return FVector3{ 0.f, 1.f, 0.f }; }
+		static inline FVector3 Down() { return FVector3{ 0.f, -1.f, 0.f }; }
+		static inline FVector3 Right() { return FVector3{ 1.f, 0.f, 0.f }; }
+		static inline FVector3 Left() { return FVector3{ -1.f, 0.f, 0.f }; }
+		static inline FVector3 Forward() { return FVector3{ 0.f, 0.f, 1.f }; }
+		static inline FVector3 Backward() { return FVector3{ 0.f, 0.f, -1.f }; }
 
 		FLOAT Dot(const FVector3& other) const;
 		FVector3 Cross(const FVector3& other) const;
@@ -52,7 +54,7 @@ namespace nanite
 			return FVector3{ std::fabs(vec.x), std::fabs(vec.y), std::fabs(vec.z) };
 		};
 
-		static inline FVector3 Min(const FVector3& a, const FVector3& b) 
+		static inline FVector3 Min(const FVector3& a, const FVector3& b)
 		{
 			return FVector3{ std::fmin(a.x, b.x), std::fmin(a.y, b.y), std::fmin(a.z, b.z) };
 		};
