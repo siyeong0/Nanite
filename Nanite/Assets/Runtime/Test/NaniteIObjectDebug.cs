@@ -24,10 +24,10 @@ public class RotateObject : MonoBehaviour
 			transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime, Space.World);
 		}
 
-		if (AABBs == null || AABBs.Count == 0)
+		if (AABBs == null)
 		{
 			string name = gameObject.name;
-			loadAABBsFromText(name + "_metadata");
+			loadAABBsFromText(name.Substring(0, name.Length - 3) + "/" + name + "_metadata");
 		}
 	}
 	private void OnDisable()
@@ -43,7 +43,7 @@ public class RotateObject : MonoBehaviour
 		{
 			if (boundsIndex > 0 && boundsIndex <= AABBs.Count)
 			{
-				var (bounds, color) = AABBs[(int)boundsIndex];
+				var (bounds, color) = AABBs[(int)boundsIndex - 1];
 				Gizmos.color = color;
 				Gizmos.DrawWireCube(bounds.center, bounds.size);
 				Gizmos.color = new Color(color.r, color.g, color.b, aabbAlpha);
@@ -82,7 +82,6 @@ public class RotateObject : MonoBehaviour
 				Vector3 v2 = vertices[triangles[i + 2]];
 
 				Vector3 center = (v0 + v1 + v2) / 3f;
-				center = transform.TransformPoint(center);
 
 				Vector3 edge1 = v1 - v0;
 				Vector3 edge2 = v2 - v0;

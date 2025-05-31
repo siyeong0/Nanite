@@ -9,9 +9,8 @@
 #include <unordered_map>
 
 #include "../../Math/Math.h"
-#include "../Builder/Edge.h"
-#include "../NaniteMesh/Geometry/Triangle.h"
-
+#include "../../Topology/Edge.h"
+#include "../../Topology/Triangle.h"
 #include "Quadraic.h"
 
 namespace nanite

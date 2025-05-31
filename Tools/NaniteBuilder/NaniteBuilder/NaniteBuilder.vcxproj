@@ -130,10 +130,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Nanite\Builder\NaniteBuilder.cpp" />
-    <ClCompile Include="Nanite\NaniteMesh\Geometry\Cluster.h" />
-    <ClCompile Include="Nanite\NaniteMesh\NaniteMesh.cpp" />
+    <ClCompile Include="Nanite\NaniteBuilder.cpp" />
+    <ClCompile Include="Topology\Cluster.h" />
+    <ClCompile Include="Nanite\NaniteMesh.cpp" />
     <ClCompile Include="Nanite\QEM\QEMSimplification.h" />
+    <ClCompile Include="Utils\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\AABB.hpp" />
@@ -142,10 +143,11 @@
     <ClInclude Include="Math\FVector3.hpp" />
     <ClInclude Include="Math\FVector4.hpp" />
     <ClInclude Include="Math\Math.h" />
-    <ClInclude Include="Nanite\Builder\Edge.h" />
-    <ClInclude Include="Nanite\Builder\NaniteBuilder.h" />
-    <ClInclude Include="Nanite\NaniteMesh\NaniteMesh.h" />
-    <ClInclude Include="Nanite\NaniteMesh\Geometry\Triangle.h" />
+    <ClInclude Include="Topology\Edge.h" />
+    <ClInclude Include="Nanite\NaniteBuilder.h" />
+    <ClInclude Include="Nanite\NaniteMesh.h" />
+    <ClInclude Include="Topology\Mesh.h" />
+    <ClInclude Include="Topology\Triangle.h" />
     <ClInclude Include="Nanite\QEM\Quadraic.h" />
     <ClInclude Include="Utils\Utils.h" />
   </ItemGroup>

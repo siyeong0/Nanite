@@ -1,30 +1,38 @@
 #pragma once
+#include <string>
+#include <vector>
 
 #include "../Math/FVector3.hpp"
+#include "../Topology/Cluster.h"
+#include "../Topology/Mesh.h"
 
 namespace nanite
 {
-	FVector3 HSVtoRGB(float h, float s, float v)
+	std::string ExtractFileName(const std::string& path);
+	std::string ExtractExtension(const std::string& path);
+
+	struct FVector3Hasher
 	{
-		float c = v * s;
-		float x = c * (1.f - abs(fmod(h * 6.f, 2.f) - 1.f));
-		float m = v - c;
+		size_t operator()(const FVector3& v) const
+		{
+			const int scale = 100000;
+			size_t hx = std::hash<int>()(static_cast<int>(v.x * scale));
+			size_t hy = std::hash<int>()(static_cast<int>(v.y * scale));
+			size_t hz = std::hash<int>()(static_cast<int>(v.z * scale));
+			return hx ^ (hy << 1) ^ (hz << 2);
+		}
+	};
 
-		FVector3 rgb;
+	void MergeVertices(
+		const std::vector<FVector3>& inVertices,
+		const std::vector<uint32_t>& inIndices,
+		std::vector<FVector3>* outVertices,
+		std::vector<uint32_t>* outIndices);
 
-		if (h < 1.0 / 6.0)
-			rgb = FVector3(c, x, 0);
-		else if (h < 2.0 / 6.0)
-			rgb = FVector3(x, c, 0);
-		else if (h < 3.0 / 6.0)
-			rgb = FVector3(0, c, x);
-		else if (h < 4.0 / 6.0)
-			rgb = FVector3(0, x, c);
-		else if (h < 5.0 / 6.0)
-			rgb = FVector3(x, 0, c);
-		else
-			rgb = FVector3(c, 0, x);
+	bool LoadMeshFromFile(const std::string& path, Mesh* outMesh);
+	bool SaveMeshToFbx(const Mesh& mesh, const std::string& path, const std::string& name);
 
-		return rgb + FVector3{ m, m, m };
-	}
+	bool SaveClustersMetadata(const std::vector<Cluster> clusters, const std::string& path, const std::string& name);
+
+	FVector3 HSVtoRGB(float h, float s, float v);
 }
