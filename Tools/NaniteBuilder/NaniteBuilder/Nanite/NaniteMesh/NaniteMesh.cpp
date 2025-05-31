@@ -10,29 +10,25 @@
 
 #include "../../Utils/Utils.h"	
 #include "../Builder/NaniteBuilder.h"
-#include "Geometry/Cluster.h"
+#include "../QEM/QEMSimplification.h"
 
 namespace nanite
 {
-	bool NaniteMesh::Build(int leafTriThreshold)
+	bool NaniteMesh::Build(int leafTriThreshold, int simpLevel)
 	{
 		int nparts = static_cast<int>(std::ceilf(NumTriangles() / (float)leafTriThreshold));
 		if (nparts < 1) return true;
 
-		std::vector<Cluster> clusters;
-		int edgeCut = NaniteBuilder::BuildGraph(*this, nparts, clusters);
+		NaniteBuilder builder(mVertices, mTriangles);
+		int edgeCut = builder.BuildGraph(nparts, mTriangles, mClusters);
 
-		std::cout << "METIS partitioning succeeded. Edge cut = " << edgeCut << "\n";
-		std::cout << "Number of triangles in each partition:\n";
-		for (int i = 0; i < clusters.size(); ++i)
-		{
-			std::cout << "Partition " << i << ": " << clusters[i].NumTriangles << " triangles\n";
-		}
+		std::vector<idx_t> clusterParts;
+		builder.MergeClusters(mClusters, mTriangles, clusterParts);
 
 		// set vertex color from its cluster
-		for (int i = 0; i < clusters.size(); ++i)
+		for (int i = 0; i < mClusters.size(); ++i)
 		{
-			const Cluster& cluster = clusters[i];
+			const Cluster& cluster = mClusters[i];
 			FVector3 color = HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
 			for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
 			{
@@ -40,18 +36,62 @@ namespace nanite
 			}
 		}
 
-		std::ofstream file("../../../Nanite/Assets/Resources/metadata.txt");
-		if (!file.is_open()) return false;
-		for (int i = 0; i < clusters.size(); ++i)
+		for (int si = 0; si < simpLevel; ++si)
 		{
-			const Cluster& cluster = clusters[i];
-			const AABB& aabb = cluster.Bounds;
-			FVector3 color = mTriangles[cluster.StartIndex].Color;
-			file << aabb.Min.x << " " << aabb.Min.y << " " << aabb.Min.z << " "
-				<< aabb.Max.x << " " << aabb.Max.y << " " << aabb.Max.z << " " 
-				<< color.x << " " << color.y << " " << color.z << "\n";
+			std::vector<FVector3> simpVertices;
+			std::vector<Triangle> simpTriangles;
+			for (int ci =0;ci < mClusters.size(); ++ci)
+			{
+				const Cluster& cluster = mClusters[ci];
+
+				std::unordered_set<int> usedVertices;
+				for (int i = cluster.StartIndex; i < cluster.StartIndex + cluster.NumTriangles; ++i)
+				{
+					const Triangle& tri = mTriangles[i];
+					usedVertices.insert(tri.i0);
+					usedVertices.insert(tri.i1);
+					usedVertices.insert(tri.i2);
+				}
+				int numVerticesInCluster = static_cast<int>(usedVertices.size());
+				std::vector<Triangle> slicedTriangles(mTriangles.begin() + cluster.StartIndex, mTriangles.begin() + cluster.StartIndex + cluster.NumTriangles);
+				auto simp = qem::SimplifyMesh(slicedTriangles, mVertices, numVerticesInCluster / 2);
+
+				int offset = simpVertices.size();
+				FVector3 color = HSVtoRGB(std::fmod(ci / 6.f, 1.f), 1.f, 1.f);
+				for (Triangle& tri : simp.second)
+				{
+					tri.i0 += offset;
+					tri.i1 += offset;
+					tri.i2 += offset;
+					tri.Color = color;
+				}
+
+				simpVertices.insert(simpVertices.end(), simp.first.begin(), simp.first.end());
+				simpTriangles.insert(simpTriangles.end(), simp.second.begin(), simp.second.end());
+			}
+
+			NaniteMesh mesh(std::move(simpVertices), std::move(simpTriangles));
+			mesh.SetName(mName + "_L1");
+			mesh.SaveToFbx("../../../Nanite/Assets/Resources/");
 		}
-		file.close();
+
+		// print stats
+		std::cout << "\nMETIS partitioning succeeded.\n"
+			<< "Edge cut: " << edgeCut << "\n";
+		int trisMax = std::numeric_limits<int>::min();
+		int trisMin = std::numeric_limits<int>::max();
+		int trisSum = 0;
+		for (int i = 0; i < mClusters.size(); ++i)
+		{
+			trisMax = std::max(trisMax, mClusters[i].NumTriangles);
+			trisMin = std::min(trisMin, mClusters[i].NumTriangles);
+			trisSum += mClusters[i].NumTriangles;
+		}
+		float trisMean = static_cast<float>(trisSum) / mClusters.size();
+		std::cout << "Number of triangles in partitions\n"
+			<< "- Max: " << trisMax << "\n"
+			<< "- Min: " << trisMax << "\n"
+			<< "- Mean: " << trisMean << "\n";
 
 		return true;
 	}
@@ -171,7 +211,7 @@ namespace nanite
 		mesh->mColors[0] = new aiColor4D[mesh->mNumVertices];
 		mesh->mMaterialIndex = 0;
 
-		for (int i = 0; i < static_cast<int>(mesh->mNumVertices); ++i) 
+		for (int i = 0; i < static_cast<int>(mesh->mNumVertices); ++i)
 		{
 			mesh->mVertices[i] = aiVector3D(mVertices[i].x, mVertices[i].y, mVertices[i].z);
 		}
@@ -262,7 +302,7 @@ namespace nanite
 		mesh->mVertices = new aiVector3D[mesh->mNumVertices];
 		mesh->mNormals = new aiVector3D[mesh->mNumVertices];
 		mesh->mColors[0] = new aiColor4D[mesh->mNumVertices];
-		for (int i = 0; i < static_cast<int>(mesh->mNumVertices); ++i) 
+		for (int i = 0; i < static_cast<int>(mesh->mNumVertices); ++i)
 		{
 			mesh->mVertices[i] = aiVector3D(outVertices[i].x, outVertices[i].y, outVertices[i].z);
 			mesh->mNormals[i] = aiVector3D(outNormals[i].x, outNormals[i].y, outNormals[i].z);
@@ -293,13 +333,28 @@ namespace nanite
 		if (ret == AI_SUCCESS)
 		{
 			std::cout << "Export succeeded!\n";
-			return true;
 		}
 		else
 		{
 			std::cerr << "Export failed: " << exporter.GetErrorString() << "\n";
 			return false;
 		}
+
+		// save metadata; bounding box info
+		std::ofstream file(path + mName + "_metadata.txt");
+		if (!file.is_open()) return false;
+		for (int i = 0; i < mClusters.size(); ++i)
+		{
+			const Cluster& cluster = mClusters[i];
+			const AABB& aabb = cluster.Bounds;
+			FVector3 color = mTriangles[cluster.StartIndex].Color;
+			file << aabb.Min.x << " " << aabb.Min.y << " " << aabb.Min.z << " "
+				<< aabb.Max.x << " " << aabb.Max.y << " " << aabb.Max.z << " "
+				<< color.x << " " << color.y << " " << color.z << "\n";
+		}
+		file.close();
+
+		return true;
 	}
 
 	void NaniteMesh::mergeVertices(

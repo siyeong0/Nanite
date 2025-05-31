@@ -16,12 +16,25 @@ namespace nanite
 	class NaniteBuilder
 	{
 	public:
-		static int BuildGraph(NaniteMesh& mesh, int nparts, std::vector<Cluster>& outClusters);
+		NaniteBuilder(const std::vector<FVector3>& vertices, std::vector<Triangle>& triangles);
+		~NaniteBuilder() = default;
+
+
+		int BuildGraph(int nparts,
+			std::vector<Triangle>& triangles,
+			std::vector<Cluster>& outClusters);
+		int MergeClusters(
+			const std::vector<Cluster>& clusters,
+			const std::vector<Triangle>& triangles,
+			std::vector<idx_t>& outMergedClusters);
 
 	private:
-		static AABB ComputeBoundingBox(
+		static AABB computeBoundingBox(
 			const std::vector<FVector3>& vertices,
 			const std::vector<Triangle>& triangles,
-			int start, int count);
+			const Cluster& cluster);
+
+	private:
+		const std::vector<FVector3>& mVertices;
 	};
 }

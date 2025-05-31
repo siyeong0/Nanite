@@ -133,15 +133,20 @@
     <ClCompile Include="Nanite\Builder\NaniteBuilder.cpp" />
     <ClCompile Include="Nanite\NaniteMesh\Geometry\Cluster.h" />
     <ClCompile Include="Nanite\NaniteMesh\NaniteMesh.cpp" />
+    <ClCompile Include="Nanite\QEM\QEMSimplification.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\AABB.hpp" />
+    <ClInclude Include="Math\FMatrix3x3.h" />
+    <ClInclude Include="Math\FMatrix4x4.h" />
     <ClInclude Include="Math\FVector3.hpp" />
+    <ClInclude Include="Math\FVector4.hpp" />
     <ClInclude Include="Math\Math.h" />
     <ClInclude Include="Nanite\Builder\Edge.h" />
     <ClInclude Include="Nanite\Builder\NaniteBuilder.h" />
     <ClInclude Include="Nanite\NaniteMesh\NaniteMesh.h" />
     <ClInclude Include="Nanite\NaniteMesh\Geometry\Triangle.h" />
+    <ClInclude Include="Nanite\QEM\Quadraic.h" />
     <ClInclude Include="Utils\Utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

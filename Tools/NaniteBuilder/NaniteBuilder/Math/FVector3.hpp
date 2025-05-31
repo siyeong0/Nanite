@@ -19,6 +19,8 @@ namespace nanite
 		FVector3(FLOAT x, FLOAT y, FLOAT z);
 		FVector3(const FVector3& other);
 		FVector3& operator=(const FVector3& other);
+		inline FLOAT& operator[](size_t idx);
+		inline const FLOAT& operator[](size_t idx) const;
 
 		static inline FVector3 Zero() { return FVector3{ 0.f, 0.f, 0.f }; }
 		static inline FVector3 One() { return FVector3{ 1.f, 1.f, 1.f }; }
@@ -122,6 +124,16 @@ namespace nanite
 		y = other.y;
 		z = other.z;
 		return *this;
+	}
+
+	inline FLOAT& FVector3::operator[](size_t idx)
+	{
+		return *(reinterpret_cast<FLOAT*>(this) + idx);
+	}
+
+	inline const FLOAT& FVector3::operator[](size_t idx) const
+	{
+		return *(reinterpret_cast<const FLOAT*>(this) + idx);
 	}
 
 	inline FLOAT FVector3::Dot(const FVector3& other) const

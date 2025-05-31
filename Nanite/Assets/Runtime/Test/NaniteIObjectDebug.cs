@@ -26,7 +26,8 @@ public class RotateObject : MonoBehaviour
 
 		if (AABBs == null || AABBs.Count == 0)
 		{
-			loadAABBsFromText("metadata");
+			string name = gameObject.name;
+			loadAABBsFromText(name + "_metadata");
 		}
 	}
 	private void OnDisable()
@@ -80,11 +81,9 @@ public class RotateObject : MonoBehaviour
 				Vector3 v1 = vertices[triangles[i + 1]];
 				Vector3 v2 = vertices[triangles[i + 2]];
 
-				// 삼각형 중심 계산 (월드 좌표)
 				Vector3 center = (v0 + v1 + v2) / 3f;
 				center = transform.TransformPoint(center);
 
-				// 삼각형 법선 계산 (cross product)
 				Vector3 edge1 = v1 - v0;
 				Vector3 edge2 = v2 - v0;
 				Vector3 triNormal = Vector3.Cross(edge1, edge2).normalized;
