@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <vector>
 #include <array>
 #include <limits>
@@ -18,7 +19,8 @@ namespace nanite
 	namespace qem
 	{
 
-		inline void ComputePlane(const FVector3& v0, const FVector3& v1, const FVector3& v2, FVector3& normal, float& d) {
+		inline void ComputePlane(const FVector3& v0, const FVector3& v1, const FVector3& v2, FVector3& normal, float& d)
+		{
 			FVector3 edge1 = v1 - v0;
 			FVector3 edge2 = v2 - v0;
 			normal = edge1.Cross(edge2).Norm();
@@ -61,21 +63,20 @@ namespace nanite
 				}
 			}
 
-			float det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1])
-				- A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0])
-				+ A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+			float det = A.Determinant(); // FMatrix3x3에 Determinant() 함수 구현 필요
+			if (fabs(det) < 1e-6f)
+				return false;
 
-			if (fabs(det) > 1e-6f)
-			{
-				// 간단한 역행렬 계산 (크래머 공식 등은 생략 가능)
-				// 실제로는 고급 선형대수 라이브러리를 쓰는 게 안전함
-				// 여기서는 생략하고 실패 처리만
-				return false; // 간단화
-			}
-			return false;
+			FVector3 result = A.Inverse() * b;
+			outPos = result;
+			return true;
 		}
 
-		inline float ComputeEdgeError(const Quadric& q1, const Quadric& q2, const FVector3& v1, const FVector3& v2, FVector3& outPos) {
+		inline float ComputeEdgeError(
+			const Quadric& q1, const Quadric& q2,
+			const FVector3& v1, const FVector3& v2,
+			bool bFix1, bool bFix2, FVector3& outPos)
+		{
 			Quadric q = q1;
 			for (int i = 0; i < 4; ++i)
 			{
@@ -85,15 +86,21 @@ namespace nanite
 				}
 			}
 
-			if (OptimalPosition(q, outPos))
+			if (bFix1)
 			{
-				return q.Evaluate(FVector4(outPos.x, outPos.y, outPos.z, 1.0f));
+				outPos = v1;
 			}
-			else
+			if (bFix2)
 			{
-				outPos = FVector3((v1.x + v2.x) * 0.5f, (v1.y + v2.y) * 0.5f, (v1.z + v2.z) * 0.5f);
-				return q.Evaluate(FVector4(outPos.x, outPos.y, outPos.z, 1.0f));
+				outPos = v2;
 			}
+
+			if (!OptimalPosition(q, outPos))
+			{
+				outPos = (v1 + v2) * 0.5f;
+			}
+
+			return q.Evaluate(FVector4(outPos.x, outPos.y, outPos.z, 1.0f));
 		}
 
 		inline std::pair<std::vector<FVector3>, std::vector<Triangle>>RemapMeshVertices(
@@ -140,103 +147,10 @@ namespace nanite
 			return std::make_pair(newVertices, newTriangles);
 		}
 
-		//inline std::pair<std::vector<FVector3>, std::vector<Triangle>> SimplifyMesh(
-		//	const std::vector<Triangle>& triangles,
-		//	const std::vector<FVector3>& vertices,
-		//	int targetVertexCount)
-		//{
-		//	auto [newVertices, newTriangles] = RemapMeshVertices(triangles, vertices);
-
-		//	std::vector<Quadric> quadrics;
-		//	ComputeVertexQuadrics(newTriangles, newVertices, quadrics);
-
-		//	std::set<Edge> edges;
-		//	for (const Triangle& tri : newTriangles)
-		//	{
-		//		edges.insert(Edge(tri.i0, tri.i1));
-		//		edges.insert(Edge(tri.i1, tri.i2));
-		//		edges.insert(Edge(tri.i2, tri.i0));
-		//	}
-
-		//	auto IsValidVertex = [](const FVector3& v) 
-		//		{
-		//		return !std::isnan(v.x);
-		//		};
-
-		//	auto CountValidVertices = [&]() 
-		//		{
-		//		int count = 0;
-		//		for (const auto& v : newVertices)
-		//			if (IsValidVertex(v)) ++count;
-		//		return count;
-		//		};
-
-		//	while (CountValidVertices() > targetVertexCount)
-		//	{
-		//		float bestError = std::numeric_limits<float>::max();
-		//		Edge bestEdge(-1, -1);
-		//		FVector3 bestPos;
-
-		//		for (const Edge& edge : edges)
-		//		{
-		//			if (!IsValidVertex(newVertices[edge.a]) || !IsValidVertex(newVertices[edge.b]))
-		//				continue;
-
-		//			FVector3 newPos;
-		//			float error = ComputeEdgeError(
-		//				quadrics[edge.a], quadrics[edge.b],
-		//				newVertices[edge.a], newVertices[edge.b], newPos);
-
-		//			if (error < bestError)
-		//			{
-		//				bestError = error;
-		//				bestEdge = edge;
-		//				bestPos = newPos;
-		//			}
-		//		}
-
-		//		if (bestEdge.a == -1 || bestEdge.b == -1)
-		//			break; // 더 이상 병합할 유효한 엣지가 없음
-
-		//		// 병합 수행
-		//		newVertices[bestEdge.a] = bestPos;
-		//		for (int i = 0; i < 4; ++i)
-		//			for (int j = 0; j < 4; ++j)
-		//				quadrics[bestEdge.a].Q[i][j] += quadrics[bestEdge.b].Q[i][j];
-
-		//		for (Triangle& tri : newTriangles)
-		//		{
-		//			if (tri.i0 == bestEdge.b) tri.i0 = bestEdge.a;
-		//			if (tri.i1 == bestEdge.b) tri.i1 = bestEdge.a;
-		//			if (tri.i2 == bestEdge.b) tri.i2 = bestEdge.a;
-		//		}
-
-		//		newVertices[bestEdge.b] = FVector3(std::numeric_limits<float>::quiet_NaN(), 0, 0);
-		//		edges.erase(bestEdge);
-		//	}
-
-		//	// 유효한 삼각형 필터링
-		//	std::vector<Triangle> filteredTriangles;
-		//	for (const Triangle& tri : newTriangles) {
-		//		if (!IsValidVertex(newVertices[tri.i0]) ||
-		//			!IsValidVertex(newVertices[tri.i1]) ||
-		//			!IsValidVertex(newVertices[tri.i2]))
-		//			continue;
-
-		//		// 정점이 서로 달라야 함 (degenerate triangle 제거)
-		//		if (tri.i0 == tri.i1 || tri.i1 == tri.i2 || tri.i2 == tri.i0)
-		//			continue;
-
-		//		filteredTriangles.push_back(tri);
-		//	}
-
-		//	return RemapMeshVertices(filteredTriangles, newVertices);
-		//}
-
 		inline std::pair<std::vector<FVector3>, std::vector<Triangle>> SimplifyMesh(
+			int targetTriangleCount,
 			const std::vector<Triangle>& triangles,
-			const std::vector<FVector3>& vertices,
-			int targetVertexCount)
+			const std::vector<FVector3>& vertices)
 		{
 			auto [newVertices, newTriangles] = RemapMeshVertices(triangles, vertices);
 
@@ -248,39 +162,49 @@ namespace nanite
 
 			for (const Triangle& tri : newTriangles)
 			{
-				auto addEdge = [&](int a, int b) {
-					Edge e(a, b);
-					edges.insert(e);
-					edgeUsage[e]++;
+				auto addEdge = [&](int a, int b)
+					{
+						Edge e(a, b);
+						edges.insert(e);
+						edgeUsage[e]++;
 					};
 				addEdge(tri.i0, tri.i1);
 				addEdge(tri.i1, tri.i2);
 				addEdge(tri.i2, tri.i0);
 			}
 
-			// 경계 정점 감지
+			// lock boundary edges
 			std::set<int> fixedVertices;
 			for (const auto& [edge, count] : edgeUsage)
 			{
-				if (count == 1) // 삼각형 한 개에만 포함된 엣지 → 경계
+				if (count == 1)
 				{
 					fixedVertices.insert(edge.a);
 					fixedVertices.insert(edge.b);
 				}
 			}
 
-			auto IsValidVertex = [](const FVector3& v) {
-				return !std::isnan(v.x);
+			auto IsValidVertex = [](const FVector3& v) { return !std::isnan(v.x); };
+
+			auto CountValidTriangles = [&]()
+				{
+					int count = 0;
+					for (const auto& tri : newTriangles)
+					{
+						if (!IsValidVertex(newVertices[tri.i0]) ||
+							!IsValidVertex(newVertices[tri.i1]) ||
+							!IsValidVertex(newVertices[tri.i2]))
+							continue;
+
+						if (tri.i0 == tri.i1 || tri.i1 == tri.i2 || tri.i2 == tri.i0)
+							continue;
+
+						count++;
+					}
+					return count;
 				};
 
-			auto CountValidVertices = [&]() {
-				int count = 0;
-				for (const auto& v : newVertices)
-					if (IsValidVertex(v)) ++count;
-				return count;
-				};
-
-			while (CountValidVertices() > targetVertexCount)
+			while (CountValidTriangles() > targetTriangleCount)
 			{
 				float bestError = std::numeric_limits<float>::max();
 				Edge bestEdge(-1, -1);
@@ -291,14 +215,15 @@ namespace nanite
 					if (!IsValidVertex(newVertices[edge.a]) || !IsValidVertex(newVertices[edge.b]))
 						continue;
 
-					// 경계 정점이 포함된 엣지는 병합하지 않음
-					if (fixedVertices.count(edge.a) || fixedVertices.count(edge.b))
+					if (fixedVertices.count(edge.a) && fixedVertices.count(edge.b))
 						continue;
 
 					FVector3 newPos;
 					float error = ComputeEdgeError(
 						quadrics[edge.a], quadrics[edge.b],
-						newVertices[edge.a], newVertices[edge.b], newPos);
+						newVertices[edge.a], newVertices[edge.b],
+						fixedVertices.count(edge.a), fixedVertices.count(edge.b),
+						newPos);
 
 					if (error < bestError)
 					{
@@ -309,13 +234,23 @@ namespace nanite
 				}
 
 				if (bestEdge.a == -1 || bestEdge.b == -1)
-					break; // 병합할 엣지가 없음
+					break;
 
-				// 병합 수행
+				if (fixedVertices.count(bestEdge.a))
+					bestPos = newVertices[bestEdge.a];
+				else if (fixedVertices.count(bestEdge.b))
+					bestPos = newVertices[bestEdge.b];
+
 				newVertices[bestEdge.a] = bestPos;
 				for (int i = 0; i < 4; ++i)
 					for (int j = 0; j < 4; ++j)
 						quadrics[bestEdge.a].Q[i][j] += quadrics[bestEdge.b].Q[i][j];
+
+				if (fixedVertices.count(bestEdge.b))
+				{
+					fixedVertices.erase(bestEdge.b);
+					fixedVertices.insert(bestEdge.a);
+				}
 
 				for (Triangle& tri : newTriangles)
 				{
@@ -325,10 +260,16 @@ namespace nanite
 				}
 
 				newVertices[bestEdge.b] = FVector3(std::numeric_limits<float>::quiet_NaN(), 0, 0);
-				edges.erase(bestEdge);
+				std::set<Edge> updatedEdges;
+				for (const Edge& edge : edges)
+				{
+					if (edge.a == bestEdge.b || edge.b == bestEdge.b)
+						continue; // 제거
+					updatedEdges.insert(edge);
+				}
+				edges = std::move(updatedEdges);
 			}
 
-			// 유효한 삼각형 필터링
 			std::vector<Triangle> filteredTriangles;
 			for (const Triangle& tri : newTriangles)
 			{
@@ -345,6 +286,5 @@ namespace nanite
 
 			return RemapMeshVertices(filteredTriangles, newVertices);
 		}
-
 	}
 }

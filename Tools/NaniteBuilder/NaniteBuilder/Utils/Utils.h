@@ -29,6 +29,8 @@ namespace nanite
 		std::vector<FVector3>* outVertices,
 		std::vector<uint32_t>* outIndices);
 
+	AABB ComputeBoundingBox(const std::vector<FVector3>& vertices);
+
 	bool LoadMeshFromFile(const std::string& path, Mesh* outMesh);
 	bool SaveMeshToFbx(const Mesh& mesh, const std::string& path, const std::string& name);
 

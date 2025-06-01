@@ -59,6 +59,16 @@ namespace nanite
 		}
 	}
 
+	AABB ComputeBoundingBox(const std::vector<FVector3>& vertices)
+	{
+		AABB aabb;
+		for (const FVector3& v : vertices)
+		{
+			aabb.Encapsulate(v);
+		}
+		return aabb;
+	}
+
 	bool LoadMeshFromFile(const std::string& path, Mesh* outMesh)
 	{
 		Assimp::Importer importer;

@@ -6,14 +6,32 @@ namespace nanite
 {
 	int NaniteBuilder::SplitMeshIntoClusters(int nparts, Mesh* inoutMesh, std::vector<Cluster>* outClusters)
 	{
-		const std::vector<FVector3>& vertices = inoutMesh->Vertices;
-		std::vector<Triangle>& triangles = inoutMesh->Triangles;
-		int numTriangles = static_cast<int>(triangles.size());
+		return SplitMeshIntoClusters(nparts, inoutMesh->Vertices, &(inoutMesh->Triangles), outClusters);
+	}
+
+	int NaniteBuilder::SplitMeshIntoClusters(
+		int nparts,
+		const std::vector<FVector3> vertices,
+		std::vector<Triangle>* inoutTriangles,
+		std::vector<Cluster>* outClusters)
+	{
+		return SplitMeshIntoClusters(
+			nparts, 0, static_cast<int>(inoutTriangles->size()), 
+			vertices, inoutTriangles, outClusters);
+	}
+
+	int NaniteBuilder::SplitMeshIntoClusters(
+		int nparts, int start, int count,
+		const std::vector<FVector3> vertices,
+		std::vector<Triangle>* inoutTriangles,
+		std::vector<Cluster>* outClusters)
+	{
+		std::vector<Triangle>& triangles = *inoutTriangles;
 
 		// build triangle graph
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangles;
-		edgeToTriangles.reserve(numTriangles * 3);
-		for (int triIdx = 0; triIdx < numTriangles; ++triIdx)
+		edgeToTriangles.reserve(count * 3);
+		for (int triIdx = start; triIdx < start + count; ++triIdx)
 		{
 			const Triangle& triangle = triangles[triIdx];
 			uint32_t i0 = triangle.i0;
@@ -25,13 +43,13 @@ namespace nanite
 		}
 
 		// partition the triangle graph using METIS
-		std::vector<std::set<idx_t>> triangleAdj(numTriangles);
+		std::vector<std::set<idx_t>> triangleAdj(count);
 		for (const auto& [edge, tris] : edgeToTriangles)
 		{
 			if (tris.size() == 2)
 			{
-				idx_t t0 = tris[0];
-				idx_t t1 = tris[1];
+				idx_t t0 = tris[0] - start;
+				idx_t t1 = tris[1] - start;
 				triangleAdj[t0].insert(t1);
 				triangleAdj[t1].insert(t0);
 			}
@@ -57,7 +75,7 @@ namespace nanite
 		idx_t* adjwgt = nullptr;
 
 		std::vector<real_t> tpwgts(nparts, 1.0f / nparts);
-		real_t ubvec = { 1.05f };
+		real_t ubvec = { 1.00f };
 
 		idx_t options[METIS_NOPTIONS];
 		METIS_SetDefaultOptions(options);
@@ -65,10 +83,10 @@ namespace nanite
 
 		idx_t objval;
 		std::vector<idx_t> partOut;
-		partOut.resize(numTriangles);
+		partOut.resize(count);
 
 		int result = METIS_PartGraphKway(
-			static_cast<idx_t*>(&numTriangles), &ncon, xadj.data(), adjncy.data(),
+			static_cast<idx_t*>(&count), &ncon, xadj.data(), adjncy.data(),
 			vwgt, vsize, adjwgt, &nparts,
 			tpwgts.data(), &ubvec, options, &objval, partOut.data());
 
@@ -80,35 +98,37 @@ namespace nanite
 
 		// reorder and cluster triangles based on partitions
 		std::vector<std::vector<Triangle>> reorederBuffer(nparts);
-		for (int i = 0; i < numTriangles; ++i)
+		for (int i = 0; i < count; ++i)
 		{
-			reorederBuffer[partOut[i]].push_back(triangles[i]);
+			reorederBuffer[partOut[i]].push_back(triangles[start + i]);
 		}
 
-		triangles.clear();
+		triangles.erase(triangles.begin() + start, triangles.begin() + start + count);
 		outClusters->clear();
 		outClusters->resize(nparts);
+		int insertIndex = start;
 		for (int i = 0; i < nparts; ++i)
 		{
-			inoutMesh->Triangles.insert(triangles.end(), reorederBuffer[i].begin(), reorederBuffer[i].end());
-			(*outClusters)[i].StartIndex = static_cast<int>(triangles.size() - reorederBuffer[i].size());
+			triangles.insert(triangles.begin() + insertIndex, reorederBuffer[i].begin(), reorederBuffer[i].end());
+			(*outClusters)[i].StartIndex = static_cast<int>(insertIndex);
 			(*outClusters)[i].NumTriangles = static_cast<int>(reorederBuffer[i].size());
 			(*outClusters)[i].Bounds = computeBoundingBox(vertices, triangles, (*outClusters)[i]);
+			insertIndex += static_cast<int>(reorederBuffer[i].size());
 		}
 
 		return static_cast<int>(objval);
 	}
 
-	int NaniteBuilder::MergeClusters(const std::vector<Cluster>& clusters, Mesh* inoutMesh,std::vector<Cluster>* outClusters)
+	int NaniteBuilder::MergeClusters(const std::vector<Cluster>& clusters, Mesh* inoutMesh, std::vector<Cluster>* outClusters)
 	{
 		const std::vector<FVector3>& vertices = inoutMesh->Vertices;
 		std::vector<Triangle>& triangles = inoutMesh->Triangles;
 
 		int numTriangles = static_cast<int>(triangles.size());
 		int numClusters = static_cast<int>(clusters.size());
+		// int mergeGroupSize = std::max(2, std::min(numTriangles / 256, 4));
 		int mergeGroupSize = 4;
 		int numGroups = static_cast<int>(std::ceilf(static_cast<float>(numClusters) / mergeGroupSize));
-
 		if (numGroups < 2) return -1;
 
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToClusters;
@@ -167,7 +187,7 @@ namespace nanite
 		idx_t* adjwgt = nullptr;
 
 		std::vector<real_t> tpwgts(numGroups, 1.0f / numGroups);
-		real_t ubvec = { 1.05f };
+		real_t ubvec = { 1.5f };
 
 		idx_t options[METIS_NOPTIONS];
 		METIS_SetDefaultOptions(options);
@@ -193,7 +213,7 @@ namespace nanite
 		for (int i = 0; i < numClusters; ++i)
 		{
 			const Cluster& cluster = clusters[i];
-			reorederBuffer[partOut[i]].insert(reorederBuffer[partOut[i]].end(), 
+			reorederBuffer[partOut[i]].insert(reorederBuffer[partOut[i]].end(),
 				triangles.begin() + cluster.StartIndex, triangles.begin() + cluster.StartIndex + cluster.NumTriangles);
 		}
 

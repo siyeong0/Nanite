@@ -16,7 +16,19 @@ namespace nanite
 	class NaniteBuilder
 	{
 	public:
-		static int SplitMeshIntoClusters(int nparts, Mesh* inoutMesh, std::vector<Cluster>* outClusters);
+		static int SplitMeshIntoClusters(
+			int nparts, Mesh* inoutMesh, std::vector<Cluster>* outClusters);
+		static int SplitMeshIntoClusters(
+			int nparts, 
+			const std::vector<FVector3> vertices, 
+			std::vector<Triangle>* inoutTriangles,
+			std::vector<Cluster>* outClusters);
+		static int SplitMeshIntoClusters(
+			int nparts, int start, int count,
+			const std::vector<FVector3> vertices,
+			std::vector<Triangle>* inoutTriangles,
+			std::vector<Cluster>* outClusters);
+
 		static int MergeClusters(const std::vector<Cluster>& clusters, Mesh* inoutMesh, std::vector<Cluster>* outClusters);
 
 	private:
