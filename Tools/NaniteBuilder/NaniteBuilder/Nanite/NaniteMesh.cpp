@@ -84,16 +84,15 @@ namespace nanite
 			int objval = NaniteBuilder::MergeClusters(dstClusters, &dstMesh, &dstLevel.Clusters);
 
 			if (objval < 0 || dstLevel.Clusters.size() >= srcLevel.Clusters.size())
-			{
-				dstLevel.Clusters.clear();
-				Cluster wholeCluster;
-				wholeCluster.StartIndex = 0;
-				wholeCluster.NumTriangles = dstMesh.Triangles.size();
-				wholeCluster.Bounds = ComputeBoundingBox(dstLevel.Mesh.Vertices);
-				dstLevel.Clusters.emplace_back(wholeCluster);
 				break;
-			}
 		}
+
+		Level& tailLevel = mLevels[mLevels.size() - 1];
+		Cluster wholeCluster;
+		wholeCluster.StartIndex = 0;
+		wholeCluster.NumTriangles = static_cast<int>(tailLevel.Mesh.Triangles.size());
+		wholeCluster.Bounds = ComputeBoundingBox(tailLevel.Mesh.Vertices);
+		tailLevel.Clusters.emplace_back(wholeCluster);
 
 		return true;
 	}

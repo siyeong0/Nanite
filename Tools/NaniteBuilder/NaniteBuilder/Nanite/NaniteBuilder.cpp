@@ -75,7 +75,7 @@ namespace nanite
 		idx_t* adjwgt = nullptr;
 
 		std::vector<real_t> tpwgts(nparts, 1.0f / nparts);
-		real_t ubvec = { 1.00f };
+		real_t ubvec = { 1.08f };
 
 		idx_t options[METIS_NOPTIONS];
 		METIS_SetDefaultOptions(options);
@@ -126,8 +126,7 @@ namespace nanite
 
 		int numTriangles = static_cast<int>(triangles.size());
 		int numClusters = static_cast<int>(clusters.size());
-		// int mergeGroupSize = std::max(2, std::min(numTriangles / 256, 4));
-		int mergeGroupSize = 4;
+		int mergeGroupSize = std::max(3, std::min(numTriangles / 128, 4));
 		int numGroups = static_cast<int>(std::ceilf(static_cast<float>(numClusters) / mergeGroupSize));
 		if (numGroups < 2) return -1;
 
@@ -187,7 +186,7 @@ namespace nanite
 		idx_t* adjwgt = nullptr;
 
 		std::vector<real_t> tpwgts(numGroups, 1.0f / numGroups);
-		real_t ubvec = { 1.5f };
+		real_t ubvec = { 2.0f };
 
 		idx_t options[METIS_NOPTIONS];
 		METIS_SetDefaultOptions(options);

@@ -9,8 +9,10 @@ int main(void)
 
 	//const char* modelFile = "../../../Resources/Sphere.obj";
 	//const char* outputPath = "../../../Nanite/Assets/Resources/Sphere/";
-	const char* modelFile = "../../../Resources/Dragon_8K.obj";
-	const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_8K/";
+	/*const char* modelFile = "../../../Resources/Dragon_8K.obj";
+	const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_8K/";*/
+	const char* modelFile = "../../../Resources/Dragon_80K.obj";
+	const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_80K/";
 
 	nanite::Mesh mesh;
 	nanite::LoadMeshFromFile(modelFile, &mesh);

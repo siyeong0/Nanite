@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 [ExecuteAlways]
 public class RotateObject : MonoBehaviour
@@ -26,8 +27,9 @@ public class RotateObject : MonoBehaviour
 
 		if (AABBs == null)
 		{
+			string folder = transform.parent.name;
 			string name = gameObject.name;
-			loadAABBsFromText(name.Substring(0, name.Length - 3) + "/" + name + "_metadata");
+			loadAABBsFromText(folder + "/" + name + "_metadata");
 		}
 	}
 	private void OnDisable()
