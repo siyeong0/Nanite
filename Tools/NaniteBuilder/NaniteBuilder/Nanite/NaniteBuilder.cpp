@@ -218,13 +218,17 @@ namespace nanite
 
 		triangles.clear();
 		outClusters->clear();
-		outClusters->resize(numGroups);
+		outClusters->reserve(numGroups);
 		for (int i = 0; i < numGroups; ++i)
 		{
+			if (reorederBuffer[i].size() == 0)
+				continue;
 			triangles.insert(triangles.end(), reorederBuffer[i].begin(), reorederBuffer[i].end());
-			(*outClusters)[i].StartIndex = static_cast<int>(triangles.size() - reorederBuffer[i].size());
-			(*outClusters)[i].NumTriangles = static_cast<int>(reorederBuffer[i].size());
-			(*outClusters)[i].Bounds = computeBoundingBox(vertices, triangles, (*outClusters)[i]);
+			Cluster cluster;
+			cluster.StartIndex = static_cast<int>(triangles.size() - reorederBuffer[i].size());
+			cluster.NumTriangles = static_cast<int>(reorederBuffer[i].size());
+			cluster.Bounds = computeBoundingBox(vertices, triangles, cluster);
+			outClusters->emplace_back(std::move(cluster));
 		}
 
 		return static_cast<int>(objval);

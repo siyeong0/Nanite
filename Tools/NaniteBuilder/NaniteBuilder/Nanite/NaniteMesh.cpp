@@ -69,6 +69,7 @@ namespace nanite
 				dstMesh.Triangles.insert(dstMesh.Triangles.end(), simplifiedTriangles.begin(), simplifiedTriangles.end());
 				tmpClusters.push_back(tmpCluster);
 			}
+
 			mergeDuplicatedVertices(&dstMesh);
 
 			std::vector<Cluster> dstClusters;
@@ -83,7 +84,7 @@ namespace nanite
 			}
 			int objval = NaniteBuilder::MergeClusters(dstClusters, &dstMesh, &dstLevel.Clusters);
 
-			if (objval < 0 || dstLevel.Clusters.size() >= srcLevel.Clusters.size())
+			if (objval < 1 || dstLevel.Clusters.size() >= srcLevel.Clusters.size())
 				break;
 		}
 
@@ -92,6 +93,7 @@ namespace nanite
 		wholeCluster.StartIndex = 0;
 		wholeCluster.NumTriangles = static_cast<int>(tailLevel.Mesh.Triangles.size());
 		wholeCluster.Bounds = ComputeBoundingBox(tailLevel.Mesh.Vertices);
+		tailLevel.Clusters.clear();
 		tailLevel.Clusters.emplace_back(wholeCluster);
 
 		return true;
