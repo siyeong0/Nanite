@@ -128,6 +128,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Nanite\NaniteBuilder.cpp" />
     <ClCompile Include="Nanite\NaniteMesh.cpp" />
+    <ClCompile Include="Nanite\QEM\QEMSimplification.cpp" />
+    <ClCompile Include="Nanite\QEM\Quadric.h" />
     <ClCompile Include="Utils\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -140,7 +142,6 @@
     <ClInclude Include="Nanite\NaniteBuilder.h" />
     <ClInclude Include="Nanite\NaniteMesh.h" />
     <ClInclude Include="Nanite\QEM\QEMSimplification.h" />
-    <ClInclude Include="Nanite\QEM\Quadraic.h" />
     <ClInclude Include="Topology\Cluster.h" />
     <ClInclude Include="Topology\Edge.h" />
     <ClInclude Include="Topology\Mesh.h" />

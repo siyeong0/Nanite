@@ -27,6 +27,12 @@
     <ClCompile Include="Utils\Utils.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="Nanite\QEM\QEMSimplification.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Nanite\QEM\Quadric.h">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\AABB.hpp">
@@ -54,9 +60,6 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Nanite\QEM\QEMSimplification.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="Nanite\QEM\Quadraic.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Topology\Cluster.h">
