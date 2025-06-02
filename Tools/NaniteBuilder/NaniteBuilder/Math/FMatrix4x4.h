@@ -20,7 +20,9 @@ namespace nanite
 		static FMatrix4x4 Identity();
 		static FMatrix4x4 Zero();
 
-		FMatrix4x4 Transposed() const;
+		inline FMatrix4x4 Inverse() const;
+		inline FMatrix4x4 Transposed() const;
+		inline float Determinant() const;
 
 		FMatrix4x4& operator=(const FMatrix4x4& other);
 		inline FLOAT& operator[](size_t idx);
@@ -82,6 +84,45 @@ namespace nanite
 		return FMatrix4x4();
 	}
 
+	inline FMatrix4x4 FMatrix4x4::Inverse() const
+	{
+		FMatrix4x4 inv;
+		float det = Determinant();
+
+		if (fabs(det) < 1e-6f)
+		{
+			return FMatrix4x4(); // 역행렬 없음
+		}
+
+		float invDet = 1.0f / det;
+
+#define M(i,j) (*this)[i][j]
+
+		inv[0][0] = (M(1, 1) * (M(2, 2) * M(3, 3) - M(2, 3) * M(3, 2)) - M(1, 2) * (M(2, 1) * M(3, 3) - M(2, 3) * M(3, 1)) + M(1, 3) * (M(2, 1) * M(3, 2) - M(2, 2) * M(3, 1))) * invDet;
+		inv[0][1] = -(M(0, 1) * (M(2, 2) * M(3, 3) - M(2, 3) * M(3, 2)) - M(0, 2) * (M(2, 1) * M(3, 3) - M(2, 3) * M(3, 1)) + M(0, 3) * (M(2, 1) * M(3, 2) - M(2, 2) * M(3, 1))) * invDet;
+		inv[0][2] = (M(0, 1) * (M(1, 2) * M(3, 3) - M(1, 3) * M(3, 2)) - M(0, 2) * (M(1, 1) * M(3, 3) - M(1, 3) * M(3, 1)) + M(0, 3) * (M(1, 1) * M(3, 2) - M(1, 2) * M(3, 1))) * invDet;
+		inv[0][3] = -(M(0, 1) * (M(1, 2) * M(2, 3) - M(1, 3) * M(2, 2)) - M(0, 2) * (M(1, 1) * M(2, 3) - M(1, 3) * M(2, 1)) + M(0, 3) * (M(1, 1) * M(2, 2) - M(1, 2) * M(2, 1))) * invDet;
+
+		inv[1][0] = -(M(1, 0) * (M(2, 2) * M(3, 3) - M(2, 3) * M(3, 2)) - M(1, 2) * (M(2, 0) * M(3, 3) - M(2, 3) * M(3, 0)) + M(1, 3) * (M(2, 0) * M(3, 2) - M(2, 2) * M(3, 0))) * invDet;
+		inv[1][1] = (M(0, 0) * (M(2, 2) * M(3, 3) - M(2, 3) * M(3, 2)) - M(0, 2) * (M(2, 0) * M(3, 3) - M(2, 3) * M(3, 0)) + M(0, 3) * (M(2, 0) * M(3, 2) - M(2, 2) * M(3, 0))) * invDet;
+		inv[1][2] = -(M(0, 0) * (M(1, 2) * M(3, 3) - M(1, 3) * M(3, 2)) - M(0, 2) * (M(1, 0) * M(3, 3) - M(1, 3) * M(3, 0)) + M(0, 3) * (M(1, 0) * M(3, 2) - M(1, 2) * M(3, 0))) * invDet;
+		inv[1][3] = (M(0, 0) * (M(1, 2) * M(2, 3) - M(1, 3) * M(2, 2)) - M(0, 2) * (M(1, 0) * M(2, 3) - M(1, 3) * M(2, 0)) + M(0, 3) * (M(1, 0) * M(2, 2) - M(1, 2) * M(2, 0))) * invDet;
+
+		inv[2][0] = (M(1, 0) * (M(2, 1) * M(3, 3) - M(2, 3) * M(3, 1)) - M(1, 1) * (M(2, 0) * M(3, 3) - M(2, 3) * M(3, 0)) + M(1, 3) * (M(2, 0) * M(3, 1) - M(2, 1) * M(3, 0))) * invDet;
+		inv[2][1] = -(M(0, 0) * (M(2, 1) * M(3, 3) - M(2, 3) * M(3, 1)) - M(0, 1) * (M(2, 0) * M(3, 3) - M(2, 3) * M(3, 0)) + M(0, 3) * (M(2, 0) * M(3, 1) - M(2, 1) * M(3, 0))) * invDet;
+		inv[2][2] = (M(0, 0) * (M(1, 1) * M(3, 3) - M(1, 3) * M(3, 1)) - M(0, 1) * (M(1, 0) * M(3, 3) - M(1, 3) * M(3, 0)) + M(0, 3) * (M(1, 0) * M(3, 1) - M(1, 1) * M(3, 0))) * invDet;
+		inv[2][3] = -(M(0, 0) * (M(1, 1) * M(2, 3) - M(1, 3) * M(2, 1)) - M(0, 1) * (M(1, 0) * M(2, 3) - M(1, 3) * M(2, 0)) + M(0, 3) * (M(1, 0) * M(2, 1) - M(1, 1) * M(2, 0))) * invDet;
+
+		inv[3][0] = -(M(1, 0) * (M(2, 1) * M(3, 2) - M(2, 2) * M(3, 1)) - M(1, 1) * (M(2, 0) * M(3, 2) - M(2, 2) * M(3, 0)) + M(1, 2) * (M(2, 0) * M(3, 1) - M(2, 1) * M(3, 0))) * invDet;
+		inv[3][1] = (M(0, 0) * (M(2, 1) * M(3, 2) - M(2, 2) * M(3, 1)) - M(0, 1) * (M(2, 0) * M(3, 2) - M(2, 2) * M(3, 0)) + M(0, 2) * (M(2, 0) * M(3, 1) - M(2, 1) * M(3, 0))) * invDet;
+		inv[3][2] = -(M(0, 0) * (M(1, 1) * M(3, 2) - M(1, 2) * M(3, 1)) - M(0, 1) * (M(1, 0) * M(3, 2) - M(1, 2) * M(3, 0)) + M(0, 2) * (M(1, 0) * M(3, 1) - M(1, 1) * M(3, 0))) * invDet;
+		inv[3][3] = (M(0, 0) * (M(1, 1) * M(2, 2) - M(1, 2) * M(2, 1)) - M(0, 1) * (M(1, 0) * M(2, 2) - M(1, 2) * M(2, 0)) + M(0, 2) * (M(1, 0) * M(2, 1) - M(1, 1) * M(2, 0))) * invDet;
+
+#undef M
+
+		return inv;
+	}
+
 	inline FMatrix4x4 FMatrix4x4::Transposed() const
 	{
 		FMatrix4x4 result;
@@ -89,6 +130,36 @@ namespace nanite
 			for (int j = 0; j < 4; ++j)
 				result.m[i][j] = m[j][i];
 		return result;
+	}
+
+	inline float FMatrix4x4::Determinant() const
+	{
+		const float a00 = (*this)[0][0], a01 = (*this)[0][1], a02 = (*this)[0][2], a03 = (*this)[0][3];
+		const float a10 = (*this)[1][0], a11 = (*this)[1][1], a12 = (*this)[1][2], a13 = (*this)[1][3];
+		const float a20 = (*this)[2][0], a21 = (*this)[2][1], a22 = (*this)[2][2], a23 = (*this)[2][3];
+		const float a30 = (*this)[3][0], a31 = (*this)[3][1], a32 = (*this)[3][2], a33 = (*this)[3][3];
+
+		return
+			a00 * (
+				a11 * (a22 * a33 - a23 * a32) -
+				a12 * (a21 * a33 - a23 * a31) +
+				a13 * (a21 * a32 - a22 * a31)
+				) -
+			a01 * (
+				a10 * (a22 * a33 - a23 * a32) -
+				a12 * (a20 * a33 - a23 * a30) +
+				a13 * (a20 * a32 - a22 * a30)
+				) +
+			a02 * (
+				a10 * (a21 * a33 - a23 * a31) -
+				a11 * (a20 * a33 - a23 * a30) +
+				a13 * (a20 * a31 - a21 * a30)
+				) -
+			a03 * (
+				a10 * (a21 * a32 - a22 * a31) -
+				a11 * (a20 * a32 - a22 * a30) +
+				a12 * (a20 * a31 - a21 * a30)
+				);
 	}
 
 	inline FMatrix4x4 FMatrix4x4::operator*(const FMatrix4x4& rhs) const

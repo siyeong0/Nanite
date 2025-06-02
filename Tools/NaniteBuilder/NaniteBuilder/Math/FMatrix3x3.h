@@ -81,49 +81,7 @@ namespace nanite
 		return FMatrix3x3();
 	}
 
-	inline FMatrix3x3 FMatrix3x3::Inverse() const
-	{
-		FMatrix3x3 inv;
-
-		float det = Determinant();
-		if (fabs(det) < 1e-6f)
-		{
-			return FMatrix3x3();
-		}
-
-		float invDet = 1.0f / det;
-
-		inv[0][0] = ((*this)[1][1] * (*this)[2][2] - (*this)[1][2] * (*this)[2][1]) * invDet;
-		inv[0][1] = ((*this)[0][2] * (*this)[2][1] - (*this)[0][1] * (*this)[2][2]) * invDet;
-		inv[0][2] = ((*this)[0][1] * (*this)[1][2] - (*this)[0][2] * (*this)[1][1]) * invDet;
-
-		inv[1][0] = ((*this)[1][2] * (*this)[2][0] - (*this)[1][0] * (*this)[2][2]) * invDet;
-		inv[1][1] = ((*this)[0][0] * (*this)[2][2] - (*this)[0][2] * (*this)[2][0]) * invDet;
-		inv[1][2] = ((*this)[0][2] * (*this)[1][0] - (*this)[0][0] * (*this)[1][2]) * invDet;
-
-		inv[2][0] = ((*this)[1][0] * (*this)[2][1] - (*this)[1][1] * (*this)[2][0]) * invDet;
-		inv[2][1] = ((*this)[0][1] * (*this)[2][0] - (*this)[0][0] * (*this)[2][1]) * invDet;
-		inv[2][2] = ((*this)[0][0] * (*this)[1][1] - (*this)[0][1] * (*this)[1][0]) * invDet;
-
-		return inv;
-	}
-
-	inline FMatrix3x3 FMatrix3x3::Transposed() const
-	{
-		FMatrix3x3 result;
-		for (int i = 0; i < 3; ++i)
-			for (int j = 0; j < 3; ++j)
-				result.m[i][j] = m[j][i];
-		return result;
-	}
-
-	inline float FMatrix3x3::Determinant() const
-	{
-		return
-			(*this)[0][0] * ((*this)[1][1] * (*this)[2][2] - (*this)[1][2] * (*this)[2][1]) -
-			(*this)[0][1] * ((*this)[1][0] * (*this)[2][2] - (*this)[1][2] * (*this)[2][0]) +
-			(*this)[0][2] * ((*this)[1][0] * (*this)[2][1] - (*this)[1][1] * (*this)[2][0]);
-	}
+ 
 
 	inline FMatrix3x3 FMatrix3x3::operator*(const FMatrix3x3& rhs) const
 	{

@@ -63,7 +63,7 @@ namespace nanite
 				}
 			}
 
-			float det = A.Determinant(); // FMatrix3x3에 Determinant() 함수 구현 필요
+			float det = A.Determinant();
 			if (fabs(det) < 1e-6f)
 				return false;
 
