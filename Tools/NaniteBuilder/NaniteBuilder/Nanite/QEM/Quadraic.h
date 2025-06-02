@@ -24,14 +24,28 @@ namespace nanite
 				}
 			}
 
-			inline float Evaluate(const FVector4& v) const
+			inline float Evaluate(const FVector4& vec) const
 			{
 				float result = 0.0f;
 				for (int i = 0; i < 4; ++i)
 				{
 					for (int j = 0; j < 4; ++j)
 					{
-						result += v[i] * Q[i][j] * v[j];
+						result += vec[i] * Q[i][j] * vec[j];
+					}
+				}
+				return result;
+			}
+
+			inline float Evaluate(const FVector3& vec3) const
+			{
+				const FVector4 vec = FVector4(vec3.x, vec3.y, vec3.z, 1.f);
+				float result = 0.0f;
+				for (int i = 0; i < 4; ++i)
+				{
+					for (int j = 0; j < 4; ++j)
+					{
+						result += vec[i] * Q[i][j] * vec[j];
 					}
 				}
 				return result;

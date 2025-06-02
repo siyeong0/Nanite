@@ -18,13 +18,14 @@ namespace nanite
 {
 	namespace qem
 	{
-		inline void ComputeVertexQuadrics(
+		inline std::pair<std::vector<FVector3>, std::vector<Triangle>> SimplifyMesh(
+			int targetTriangleCount,
 			const std::vector<Triangle>& triangles,
-			const std::vector<FVector3>& vertices,
-			std::vector<Quadric>& outQuadrics)
+			const std::vector<FVector3>& vertices)
 		{
-			outQuadrics.resize(vertices.size());
-
+			// compute edge quadrics
+			std::vector<Quadric> quadrics;
+			quadrics.resize(vertices.size());
 			for (const Triangle& tri : triangles)
 			{
 				const FVector3& v0 = vertices[tri.i0];
@@ -36,123 +37,15 @@ namespace nanite
 				FVector3 normal = edge1.Cross(edge2).Norm();
 				float d = -normal.Dot(v0);
 
-				outQuadrics[tri.i0].AddPlane(normal, d);
-				outQuadrics[tri.i1].AddPlane(normal, d);
-				outQuadrics[tri.i2].AddPlane(normal, d);
-			}
-		}
-
-		inline bool OptimalPosition(const Quadric& Q, FVector3& outPos)
-		{
-			FMatrix3x3 A;
-			FVector3 b;
-
-			for (int i = 0; i < 3; ++i)
-			{
-				b[i] = -Q.Q[i][3];
-				for (int j = 0; j < 3; ++j)
-				{
-					A[i][j] = Q.Q[i][j];
-				}
+				quadrics[tri.i0].AddPlane(normal, d);
+				quadrics[tri.i1].AddPlane(normal, d);
+				quadrics[tri.i2].AddPlane(normal, d);
 			}
 
-			float det = A.Determinant();
-			if (fabs(det) < 1e-6f)
-				return false;
-
-			FVector3 result = A.Inverse() * b;
-			outPos = result;
-			return true;
-		}
-
-		inline float ComputeEdgeError(
-			const Quadric& q1, const Quadric& q2,
-			const FVector3& v1, const FVector3& v2,
-			bool bFix1, bool bFix2, FVector3& outPos)
-		{
-			Quadric q = q1;
-			for (int i = 0; i < 4; ++i)
-			{
-				for (int j = 0; j < 4; ++j)
-				{
-					q.Q[i][j] += q2.Q[i][j];
-				}
-			}
-
-			if (bFix1)
-			{
-				outPos = v1;
-			}
-			else if (bFix2)
-			{
-				outPos = v2;
-			}
-			else if (!OptimalPosition(q, outPos))
-			{
-				outPos = (v1 + v2) * 0.5f;
-			}
-
-			return q.Evaluate(FVector4(outPos.x, outPos.y, outPos.z, 1.0f));
-		}
-
-		inline std::pair<std::vector<FVector3>, std::vector<Triangle>>RemapMeshVertices(
-			const std::vector<Triangle>& triangles,
-			const std::vector<FVector3>& vertices)
-		{
-			// 1. 사용된 정점 집합 수집
-			std::unordered_set<int> usedVertices;
-			for (const Triangle& tri : triangles)
-			{
-				usedVertices.insert(tri.i0);
-				usedVertices.insert(tri.i1);
-				usedVertices.insert(tri.i2);
-			}
-
-			// 2. old 인덱스 -> new 인덱스 매핑 생성
-			std::unordered_map<int, int> oldToNewIndex;
-			int newIndex = 0;
-			for (int idx : usedVertices)
-			{
-				oldToNewIndex[idx] = newIndex++;
-			}
-
-			// 3. 새 vertices 생성
-			std::vector<FVector3> newVertices(usedVertices.size());
-			for (const auto& [oldIdx, newIdx] : oldToNewIndex)
-			{
-				newVertices[newIdx] = vertices[oldIdx];
-			}
-
-			// 4. 삼각형 인덱스 재매핑
-			std::vector<Triangle> newTriangles;
-			newTriangles.reserve(triangles.size());
-			for (const Triangle& tri : triangles) {
-				Triangle newTri;
-				newTri.i0 = oldToNewIndex[tri.i0];
-				newTri.i1 = oldToNewIndex[tri.i1];
-				newTri.i2 = oldToNewIndex[tri.i2];
-				newTri.Normal = tri.Normal;
-				newTri.Color = tri.Color;
-				newTriangles.push_back(newTri);
-			}
-
-			return std::make_pair(newVertices, newTriangles);
-		}
-
-		inline std::pair<std::vector<FVector3>, std::vector<Triangle>> SimplifyMesh(
-			int targetTriangleCount,
-			const std::vector<Triangle>& triangles,
-			const std::vector<FVector3>& vertices)
-		{
-			auto [newVertices, newTriangles] = RemapMeshVertices(triangles, vertices);
-
-			std::vector<Quadric> quadrics;
-			ComputeVertexQuadrics(newTriangles, newVertices, quadrics);
-
+			// collect edges
 			std::set<Edge> edges;
 			std::map<Edge, int> edgeUsage;
-
-			for (const Triangle& tri : newTriangles)
+			for (const Triangle& tri : triangles)
 			{
 				auto addEdge = [&](int a, int b)
 					{
@@ -165,118 +58,157 @@ namespace nanite
 				addEdge(tri.i2, tri.i0);
 			}
 
-			// lock boundary edges
-			std::set<int> fixedVertices;
+			// collect boundary vertices
+			std::set<int> boundaryVertIndices;
 			for (const auto& [edge, count] : edgeUsage)
 			{
 				if (count == 1)
 				{
-					fixedVertices.insert(edge.a);
-					fixedVertices.insert(edge.b);
+					boundaryVertIndices.insert(edge.a);
+					boundaryVertIndices.insert(edge.b);
 				}
 			}
 
-			auto IsValidVertex = [](const FVector3& v) { return !std::isnan(v.x); };
+			// simpify mesh
+			std::vector<FVector3> simplifiedVertices(vertices);
+			std::vector<Triangle> simplifiedTriangles(triangles);
 
-			auto CountValidTriangles = [&]()
-				{
-					int count = 0;
-					for (const auto& tri : newTriangles)
-					{
-						if (!IsValidVertex(newVertices[tri.i0]) ||
-							!IsValidVertex(newVertices[tri.i1]) ||
-							!IsValidVertex(newVertices[tri.i2]))
-							continue;
+			// helper functions
+			auto isValidVertex = [](const FVector3& v) { return !std::isnan(v.x); };
+			auto isValidTriangle = [](const Triangle& tri) {return tri.i0 != tri.i1 && tri.i1 != tri.i2 && tri.i2 != tri.i0; };
 
-						if (tri.i0 == tri.i1 || tri.i1 == tri.i2 || tri.i2 == tri.i0)
-							continue;
-
-						count++;
-					}
-					return count;
-				};
-
-			while (CountValidTriangles() > targetTriangleCount)
+			while (simplifiedTriangles.size() > targetTriangleCount)
 			{
 				float bestError = std::numeric_limits<float>::max();
 				Edge bestEdge(-1, -1);
 				FVector3 bestPos;
+				Quadric bestQuadric;
+				bool bestAIsBoundary = false;
+				bool bestBIsBoundary = false;
 
 				for (const Edge& edge : edges)
 				{
-					if (!IsValidVertex(newVertices[edge.a]) || !IsValidVertex(newVertices[edge.b]))
-						continue;
+					FVector3 vertexA = simplifiedVertices[edge.a];
+					FVector3 vertexB = simplifiedVertices[edge.b];
+					if (!isValidVertex(vertexA) || !isValidVertex(vertexB)) continue;
 
-					if (fixedVertices.count(edge.a) && fixedVertices.count(edge.b))
-						continue;
+					bool aIsBoundary = boundaryVertIndices.count(edge.a);
+					bool bIsBoundary = boundaryVertIndices.count(edge.b);
+					if (aIsBoundary && bIsBoundary) continue;
 
-					FVector3 newPos;
-					float error = ComputeEdgeError(
-						quadrics[edge.a], quadrics[edge.b],
-						newVertices[edge.a], newVertices[edge.b],
-						fixedVertices.count(edge.a), fixedVertices.count(edge.b),
-						newPos);
+					// compute edge error
+					Quadric edgeQuadric;
+					edgeQuadric.Q = quadrics[edge.a].Q + quadrics[edge.b].Q;
 
+					// find position to merged on the edge 
+					FVector3 mergedPos;
+					if (aIsBoundary)
+					{
+						mergedPos = vertexA;
+					}
+					else if (bIsBoundary)
+					{
+						mergedPos = vertexB;
+					}
+					else
+					{
+						// find optimal position
+						FMatrix3x3 edgeQuadric3x3 = {
+							edgeQuadric.Q[0][0], edgeQuadric.Q[0][1], edgeQuadric.Q[0][2],
+							edgeQuadric.Q[1][0], edgeQuadric.Q[1][1], edgeQuadric.Q[1][2],
+							edgeQuadric.Q[2][0], edgeQuadric.Q[2][1], edgeQuadric.Q[2][2] };
+
+						if (fabs(edgeQuadric3x3.Determinant()) > 1e-6f) // valid
+						{
+							mergedPos = edgeQuadric3x3.Inverse() * FVector3(-edgeQuadric.Q[0][3], -edgeQuadric.Q[1][3], -edgeQuadric.Q[2][3]);
+						}
+						else
+						{
+							mergedPos = (vertexA + vertexB) * 0.5f; // center of edge
+						}
+					}
+
+					// update best vertex info
+					float error = edgeQuadric.Evaluate(mergedPos);
 					if (error < bestError)
 					{
 						bestError = error;
 						bestEdge = edge;
-						bestPos = newPos;
+						bestPos = mergedPos;
+						bestQuadric = edgeQuadric;
+						bestAIsBoundary = aIsBoundary;
+						bestBIsBoundary = bIsBoundary;
 					}
 				}
 
+				// there's no edge to merge
 				if (bestEdge.a == -1 || bestEdge.b == -1)
 					break;
 
-				if (fixedVertices.count(bestEdge.a))
-					bestPos = newVertices[bestEdge.a];
-				else if (fixedVertices.count(bestEdge.b))
-					bestPos = newVertices[bestEdge.b];
-
-				newVertices[bestEdge.a] = bestPos;
-				for (int i = 0; i < 4; ++i)
-					for (int j = 0; j < 4; ++j)
-						quadrics[bestEdge.a].Q[i][j] += quadrics[bestEdge.b].Q[i][j];
-
-				if (fixedVertices.count(bestEdge.b))
+				// update vertex position
+				simplifiedVertices[bestEdge.a] = bestPos;
+				if (bestBIsBoundary)
 				{
-					fixedVertices.erase(bestEdge.b);
-					fixedVertices.insert(bestEdge.a);
+					boundaryVertIndices.erase(bestEdge.b);
+					boundaryVertIndices.insert(bestEdge.a);
 				}
 
-				for (Triangle& tri : newTriangles)
-				{
-					if (tri.i0 == bestEdge.b) tri.i0 = bestEdge.a;
-					if (tri.i1 == bestEdge.b) tri.i1 = bestEdge.a;
-					if (tri.i2 == bestEdge.b) tri.i2 = bestEdge.a;
-				}
+				// mark removed vertex to NaN
+				simplifiedVertices[bestEdge.b] = FVector3(std::numeric_limits<float>::quiet_NaN(), 0, 0);
 
-				newVertices[bestEdge.b] = FVector3(std::numeric_limits<float>::quiet_NaN(), 0, 0);
-				std::set<Edge> updatedEdges;
-				for (const Edge& edge : edges)
+				// update quadrics
+				quadrics[bestEdge.a] = bestQuadric;
+
+				// update triangles
+				std::vector<Triangle> updatedSimpTriangles;
+				updatedSimpTriangles.reserve(simplifiedTriangles.size());
+				for (Triangle& tri : simplifiedTriangles)
 				{
-					if (edge.a == bestEdge.b || edge.b == bestEdge.b)
-						continue; // 제거
-					updatedEdges.insert(edge);
+					tri.i0 = tri.i0 == bestEdge.b ? bestEdge.a : tri.i0;
+					tri.i1 = tri.i1 == bestEdge.b ? bestEdge.a : tri.i1;
+					tri.i2 = tri.i2 == bestEdge.b ? bestEdge.a : tri.i2;
+					if (isValidTriangle(tri)) updatedSimpTriangles.emplace_back(tri);
 				}
-				edges = std::move(updatedEdges);
+				simplifiedTriangles = std::move(updatedSimpTriangles);
 			}
 
-			std::vector<Triangle> filteredTriangles;
-			for (const Triangle& tri : newTriangles)
+			// remap vertices
+			std::unordered_set<int> usedVertices;
+			usedVertices.reserve(simplifiedVertices.size());
+			for (const Triangle& tri : simplifiedTriangles)
 			{
-				if (!IsValidVertex(newVertices[tri.i0]) ||
-					!IsValidVertex(newVertices[tri.i1]) ||
-					!IsValidVertex(newVertices[tri.i2]))
-					continue;
-
-				if (tri.i0 == tri.i1 || tri.i1 == tri.i2 || tri.i2 == tri.i0)
-					continue;
-
-				filteredTriangles.push_back(tri);
+				usedVertices.insert(tri.i0);
+				usedVertices.insert(tri.i1);
+				usedVertices.insert(tri.i2);
 			}
 
-			return RemapMeshVertices(filteredTriangles, newVertices);
+			std::unordered_map<int, int> oldToNewIndex;
+			int newIndex = 0;
+			for (int idx : usedVertices)
+			{
+				oldToNewIndex[idx] = newIndex++;
+			}
+
+			std::vector<FVector3> remapedVertices(usedVertices.size());
+			for (const auto& [oldIdx, newIdx] : oldToNewIndex)
+			{
+				remapedVertices[newIdx] = simplifiedVertices[oldIdx];
+			}
+
+			std::vector<Triangle> remapedTriangles;
+			remapedTriangles.reserve(simplifiedTriangles.size());
+			for (const Triangle& tri : simplifiedTriangles)
+			{
+				Triangle newTri;
+				newTri.i0 = oldToNewIndex[tri.i0];
+				newTri.i1 = oldToNewIndex[tri.i1];
+				newTri.i2 = oldToNewIndex[tri.i2];
+				newTri.Normal = tri.Normal;
+				newTri.Color = tri.Color;
+				remapedTriangles.emplace_back(newTri);
+			}
+
+			return std::make_pair(remapedVertices, remapedTriangles);
 		}
 	}
 }
