@@ -51,51 +51,12 @@ namespace nanite
 		FVector3 operator*=(FLOAT v);
 		FVector3 operator/=(FLOAT v);
 
-		static inline FVector3 Abs(const FVector3& vec)
-		{
-			return FVector3{ std::fabs(vec.x), std::fabs(vec.y), std::fabs(vec.z) };
-		};
-
-		static inline FVector3 Min(const FVector3& a, const FVector3& b)
-		{
-			return FVector3{ std::fmin(a.x, b.x), std::fmin(a.y, b.y), std::fmin(a.z, b.z) };
-		};
-
-		static inline FVector3 Max(const FVector3& a, const FVector3& b)
-		{
-			return FVector3{ std::fmax(a.x, b.x), std::fmax(a.y, b.y), std::fmax(a.z, b.z) };
-		};
-
-		static inline FVector3 Clamp(const FVector3& value, const FVector3& min, const FVector3& max)
-		{
-			return FVector3{
-				std::fmax(min.x, std::fmin(value.x, max.x)),
-				std::fmax(min.y, std::fmin(value.y, max.y)),
-				std::fmax(min.z, std::fmin(value.z, max.z))
-			};
-		}
-
-		static inline FVector3 Lerp(const FVector3& a, const FVector3& b, FLOAT t)
-		{
-			t = std::fmax(0.f, std::fmin(t, 1.f)); // Clamp t between 0 and 1
-			return FVector3{
-				a.x + (b.x - a.x) * t,
-				a.y + (b.y - a.y) * t,
-				a.z + (b.z - a.z) * t
-			};
-		}
-
-		static inline FVector3 SmoothStep(const FVector3& a, const FVector3& b, FLOAT t)
-		{
-			t = std::fmax(0.f, std::fmin(t, 1.f)); // Clamp t between 0 and 1
-			FLOAT t2 = t * t;
-			FLOAT t3 = t2 * t;
-			return FVector3{
-				a.x + (b.x - a.x) * (t2 * (3.f - 2.f * t)),
-				a.y + (b.y - a.y) * (t2 * (3.f - 2.f * t)),
-				a.z + (b.z - a.z) * (t2 * (3.f - 2.f * t))
-			};
-		}
+		static inline FVector3 Abs(const FVector3& vec);
+		static inline FVector3 Min(const FVector3& a, const FVector3& b);
+		static inline FVector3 Max(const FVector3& a, const FVector3& b);
+		static inline FVector3 Clamp(const FVector3& value, const FVector3& min, const FVector3& max);
+		static inline FVector3 Lerp(const FVector3& a, const FVector3& b, FLOAT t);
+		static inline FVector3 SmoothStep(const FVector3& a, const FVector3& b, FLOAT t);
 	};
 
 	inline FVector3 operator-(const FVector3& vec);
@@ -205,7 +166,51 @@ namespace nanite
 		return *this;
 	}
 
-	// --- Operators (ºñ¸â¹ö ÇÔ¼ö) ---
+	inline FVector3 FVector3::Abs(const FVector3& vec)
+	{
+		return FVector3{ std::fabs(vec.x), std::fabs(vec.y), std::fabs(vec.z) };
+	};
+
+	inline FVector3 FVector3::Min(const FVector3& a, const FVector3& b)
+	{
+		return FVector3{ std::fmin(a.x, b.x), std::fmin(a.y, b.y), std::fmin(a.z, b.z) };
+	};
+
+	inline FVector3 FVector3::Max(const FVector3& a, const FVector3& b)
+	{
+		return FVector3{ std::fmax(a.x, b.x), std::fmax(a.y, b.y), std::fmax(a.z, b.z) };
+	};
+
+	inline FVector3 FVector3::Clamp(const FVector3& value, const FVector3& min, const FVector3& max)
+	{
+		return FVector3{
+			std::fmax(min.x, std::fmin(value.x, max.x)),
+			std::fmax(min.y, std::fmin(value.y, max.y)),
+			std::fmax(min.z, std::fmin(value.z, max.z))
+		};
+	}
+
+	inline FVector3 FVector3::Lerp(const FVector3& a, const FVector3& b, FLOAT t)
+	{
+		t = std::fmax(0.f, std::fmin(t, 1.f)); // Clamp t between 0 and 1
+		return FVector3{
+			a.x + (b.x - a.x) * t,
+			a.y + (b.y - a.y) * t,
+			a.z + (b.z - a.z) * t
+		};
+	}
+
+	inline FVector3 FVector3::SmoothStep(const FVector3& a, const FVector3& b, FLOAT t)
+	{
+		t = std::fmax(0.f, std::fmin(t, 1.f)); // Clamp t between 0 and 1
+		FLOAT t2 = t * t;
+		FLOAT t3 = t2 * t;
+		return FVector3{
+			a.x + (b.x - a.x) * (t2 * (3.f - 2.f * t)),
+			a.y + (b.y - a.y) * (t2 * (3.f - 2.f * t)),
+			a.z + (b.z - a.z) * (t2 * (3.f - 2.f * t))
+		};
+	}
 
 	inline FVector3 operator-(const FVector3& vec)
 	{

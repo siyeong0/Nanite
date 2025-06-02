@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <cstring>
+#include <cassert>
 
 #include "FVector3.hpp"
 
@@ -12,9 +13,16 @@ namespace nanite
 	{
 		FLOAT m[3][3]; // row-major
 
-		FMatrix3x3();                      // 기본 생성자 (0으로 초기화)
-		FMatrix3x3(const FLOAT* data);     // 배열 초기화
+		FMatrix3x3();
+		FMatrix3x3(const FLOAT* data);
+		FMatrix3x3(std::initializer_list<FLOAT> list);
 		FMatrix3x3(const FMatrix3x3& other);
+
+		FMatrix3x3& operator=(const FMatrix3x3& other);
+		inline FLOAT& operator[](size_t idx);
+		inline const FLOAT& operator[](size_t idx) const;
+		inline FLOAT* operator[](int row) { return m[row]; }
+		inline const FLOAT* operator[](int row) const { return m[row]; }
 
 		static FMatrix3x3 Identity();
 		static FMatrix3x3 Zero();
@@ -23,18 +31,24 @@ namespace nanite
 		inline FMatrix3x3 Transposed() const;
 		inline float Determinant() const;
 
-		FMatrix3x3& operator=(const FMatrix3x3& other);
-		inline FLOAT& operator[](size_t idx);
-		inline const FLOAT& operator[](size_t idx) const;
-
-		FMatrix3x3 operator*(const FMatrix3x3& rhs) const;
-		FVector3 MultiplyVector(const FVector3& v) const;
-
-		FLOAT* operator[](int row) { return m[row]; }
-		const FLOAT* operator[](int row) const { return m[row]; }
+		inline FMatrix3x3 operator+=(const FMatrix3x3& other);
+		inline FMatrix3x3 operator-=(const FMatrix3x3& other);
+		inline FMatrix3x3 operator*=(FLOAT v);
+		inline FMatrix3x3 operator/=(FLOAT v);
 	};
 
-	// --- 구현 ---
+	inline FMatrix3x3 operator-(const FMatrix3x3& mat);
+	inline FMatrix3x3 operator+(const FMatrix3x3& lhs, const FMatrix3x3& rhs);
+	inline FMatrix3x3 operator-(const FMatrix3x3& lhs, const FMatrix3x3& rhs);
+	inline FMatrix3x3 operator*(const FMatrix3x3& lhs, const FMatrix3x3& rhs);
+	inline FMatrix3x3 operator*(FLOAT v, const FMatrix3x3& mat);
+	inline FMatrix3x3 operator*(const FMatrix3x3& mat, FLOAT v);
+	inline FVector3 operator*(const FMatrix3x3& mat, const FVector3 vec);
+	inline FMatrix3x3 operator/(const FMatrix3x3& mat, FLOAT v);
+	inline bool operator==(const FMatrix3x3& lhs, const FMatrix3x3& rhs);
+	inline bool operator!=(const FMatrix3x3& lhs, const FMatrix3x3& rhs);
+
+	// --- Implementation ---
 
 	inline FMatrix3x3::FMatrix3x3()
 	{
@@ -44,6 +58,12 @@ namespace nanite
 	inline FMatrix3x3::FMatrix3x3(const FLOAT* data)
 	{
 		std::memcpy(m, data, sizeof(m));
+	}
+
+	inline FMatrix3x3::FMatrix3x3(std::initializer_list<FLOAT> list)
+	{
+		assert(list.size() == 9);
+		std::copy(list.begin(), list.end(), &m[0][0]);
 	}
 
 	inline FMatrix3x3::FMatrix3x3(const FMatrix3x3& other)
@@ -125,7 +145,66 @@ namespace nanite
 			(*this)[0][2] * ((*this)[1][0] * (*this)[2][1] - (*this)[1][1] * (*this)[2][0]);
 	}
 
-	inline FMatrix3x3 FMatrix3x3::operator*(const FMatrix3x3& rhs) const
+	inline FMatrix3x3 FMatrix3x3::operator+=(const FMatrix3x3& other)
+	{
+		*this = *this + other;
+	}
+
+	inline FMatrix3x3 FMatrix3x3::operator-=(const FMatrix3x3& other)
+	{
+		*this = *this - other;
+	}
+
+	inline FMatrix3x3 FMatrix3x3::operator*=(FLOAT v)
+	{
+		*this = *this * v;
+	}
+
+	inline FMatrix3x3 FMatrix3x3::operator/=(FLOAT v)
+	{
+		*this = *this / v;
+	}
+
+	inline FMatrix3x3 operator-(const FMatrix3x3& mat)
+	{
+		FMatrix3x3 result;
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				result.m[i][j] = -mat.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix3x3 operator+(const FMatrix3x3& lhs, const FMatrix3x3& rhs)
+	{
+		FMatrix3x3 result;
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				result.m[i][j] = lhs.m[i][j] + rhs.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix3x3 operator-(const FMatrix3x3& lhs, const FMatrix3x3& rhs)
+	{
+		FMatrix3x3 result;
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				result.m[i][j] = lhs.m[i][j] - rhs.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix3x3 operator*(const FMatrix3x3& lhs, const FMatrix3x3& rhs)
 	{
 		FMatrix3x3 result;
 		for (int row = 0; row < 3; ++row)
@@ -134,18 +213,71 @@ namespace nanite
 			{
 				result.m[row][col] = 0.f;
 				for (int k = 0; k < 3; ++k)
-					result.m[row][col] += m[row][k] * rhs.m[k][col];
+				{
+					result.m[row][col] += lhs.m[row][k] * rhs.m[k][col];
+				}
 			}
 		}
 		return result;
 	}
 
-	inline FVector3 FMatrix3x3::MultiplyVector(const FVector3& v) const
+	inline FMatrix3x3 operator*(FLOAT v, const FMatrix3x3& mat) 
 	{
-		return FVector3{
-			m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z,
-			m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z,
-			m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z
-		};
+		FMatrix3x3 result;
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				result.m[i][j] = v * mat.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix3x3 operator*(const FMatrix3x3& mat, FLOAT v)
+	{
+		return v * mat;
+	}
+
+	inline FVector3 operator*(const FMatrix3x3& mat, const FVector3 vec) 
+	{
+		return FVector3(
+			mat[0][0] * vec.x + mat[0][1] * vec.y + mat[0][2] * vec.z,
+			mat[1][0] * vec.x + mat[1][1] * vec.y + mat[1][2] * vec.z,
+			mat[2][0] * vec.x + mat[2][1] * vec.y + mat[2][2] * vec.z
+		);
+	}
+
+	inline FMatrix3x3 operator/(const FMatrix3x3& mat, FLOAT v)
+	{
+		FMatrix3x3 result;
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				result.m[i][j] = mat.m[i][j] / v;
+			}
+		}
+		return result;
+	}
+
+	inline bool operator==(const FMatrix3x3& lhs, const FMatrix3x3& rhs)
+	{
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				if (lhs.m[i][j] != rhs.m[i][j])
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	inline bool operator!=(const FMatrix3x3& lhs, const FMatrix3x3& rhs)
+	{
+		return !(lhs == rhs);
 	}
 }

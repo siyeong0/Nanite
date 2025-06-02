@@ -1,7 +1,7 @@
 #pragma once
 #include <cmath>
-#include <array>
 #include <cstring>
+#include <cassert>
 
 #include "FVector4.hpp"
 
@@ -13,9 +13,16 @@ namespace nanite
 	{
 		FLOAT m[4][4]; // row-major
 
-		FMatrix4x4(); // 기본 생성자
-		FMatrix4x4(const FLOAT* data); // 16개 float로 초기화
+		FMatrix4x4();
+		FMatrix4x4(const FLOAT* data);
+		FMatrix4x4(std::initializer_list<FLOAT> list);
 		FMatrix4x4(const FMatrix4x4& other);
+
+		FMatrix4x4& operator=(const FMatrix4x4& other);
+		inline FLOAT& operator[](size_t idx);
+		inline const FLOAT& operator[](size_t idx) const;
+		inline FLOAT* operator[](int row) { return m[row]; }
+		inline const FLOAT* operator[](int row) const { return m[row]; }
 
 		static FMatrix4x4 Identity();
 		static FMatrix4x4 Zero();
@@ -24,20 +31,24 @@ namespace nanite
 		inline FMatrix4x4 Transposed() const;
 		inline float Determinant() const;
 
-		FMatrix4x4& operator=(const FMatrix4x4& other);
-		inline FLOAT& operator[](size_t idx);
-		inline const FLOAT& operator[](size_t idx) const;
-		// 행렬 * 벡터 연산
-		FVector4 MultiplyPoint(const FVector4& v) const;
-
-		// 행렬 곱
-		FMatrix4x4 operator*(const FMatrix4x4& rhs) const;
-
-		FLOAT* operator[](int row) { return m[row]; }
-		const FLOAT* operator[](int row) const { return m[row]; }
+		inline FMatrix4x4 operator+=(const FMatrix4x4& other);
+		inline FMatrix4x4 operator-=(const FMatrix4x4& other);
+		inline FMatrix4x4 operator*=(FLOAT v);
+		inline FMatrix4x4 operator/=(FLOAT v);
 	};
 
-	// --- 구현 ---
+	inline FMatrix4x4 operator-(const FMatrix4x4& mat);
+	inline FMatrix4x4 operator+(const FMatrix4x4& lhs, const FMatrix4x4& rhs);
+	inline FMatrix4x4 operator-(const FMatrix4x4& lhs, const FMatrix4x4& rhs);
+	inline FMatrix4x4 operator*(const FMatrix4x4& lhs, const FMatrix4x4& rhs);
+	inline FMatrix4x4 operator*(FLOAT v, const FMatrix4x4& mat);
+	inline FMatrix4x4 operator*(const FMatrix4x4& mat, FLOAT v);
+	inline FVector4 operator*(const FMatrix4x4& mat, const FVector4 vec);
+	inline FMatrix4x4 operator/(const FMatrix4x4& mat, FLOAT v);
+	inline bool operator==(const FMatrix4x4& lhs, const FMatrix4x4& rhs);
+	inline bool operator!=(const FMatrix4x4& lhs, const FMatrix4x4& rhs);
+
+	// --- Implementation ---
 
 	inline FMatrix4x4::FMatrix4x4()
 	{
@@ -49,6 +60,12 @@ namespace nanite
 		std::memcpy(m, data, sizeof(m));
 	}
 
+	inline FMatrix4x4::FMatrix4x4(std::initializer_list<FLOAT> list)
+	{
+		assert(list.size() == 16);
+		std::copy(list.begin(), list.end(), &m[0][0]);
+	}
+
 	inline FMatrix4x4::FMatrix4x4(const FMatrix4x4& other)
 	{
 		std::memcpy(m, other.m, sizeof(m));
@@ -57,7 +74,9 @@ namespace nanite
 	inline FMatrix4x4& FMatrix4x4::operator=(const FMatrix4x4& other)
 	{
 		if (this != &other)
+		{
 			std::memcpy(m, other.m, sizeof(m));
+		}
 		return *this;
 	}
 
@@ -75,7 +94,9 @@ namespace nanite
 	{
 		FMatrix4x4 mat;
 		for (int i = 0; i < 4; ++i)
+		{
 			mat.m[i][i] = 1.0f;
+		}
 		return mat;
 	}
 
@@ -127,8 +148,12 @@ namespace nanite
 	{
 		FMatrix4x4 result;
 		for (int i = 0; i < 4; ++i)
+		{
 			for (int j = 0; j < 4; ++j)
+			{
 				result.m[i][j] = m[j][i];
+			}
+		}
 		return result;
 	}
 
@@ -162,7 +187,70 @@ namespace nanite
 				);
 	}
 
-	inline FMatrix4x4 FMatrix4x4::operator*(const FMatrix4x4& rhs) const
+	inline FMatrix4x4 FMatrix4x4::operator+=(const FMatrix4x4& other)
+	{
+		*this = *this + other;
+		return *this;
+	}
+
+	inline FMatrix4x4 FMatrix4x4::operator-=(const FMatrix4x4& other)
+	{
+		*this = *this - other;
+		return *this;
+	}
+
+	inline FMatrix4x4 FMatrix4x4::operator*=(FLOAT v)
+	{
+		*this = *this * v;
+		return *this;
+	}
+
+	inline FMatrix4x4 FMatrix4x4::operator/=(FLOAT v)
+	{
+		*this = *this / v;
+		return *this;
+	}
+
+	inline FMatrix4x4 operator-(const FMatrix4x4& mat)
+	{
+		FMatrix4x4 result;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				result.m[i][j] = -mat.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix4x4 operator+(const FMatrix4x4& lhs, const FMatrix4x4& rhs)
+	{
+		FMatrix4x4 result;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				result.m[i][j] = lhs.m[i][j] + rhs.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix4x4 operator-(const FMatrix4x4& lhs, const FMatrix4x4& rhs)
+	{
+		FMatrix4x4 result;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				result.m[i][j] = lhs.m[i][j] - rhs.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix4x4 operator*(const FMatrix4x4& lhs, const FMatrix4x4& rhs)
 	{
 		FMatrix4x4 result;
 		for (int row = 0; row < 4; ++row)
@@ -171,18 +259,70 @@ namespace nanite
 			{
 				result.m[row][col] = 0.f;
 				for (int k = 0; k < 4; ++k)
-					result.m[row][col] += m[row][k] * rhs.m[k][col];
+					result.m[row][col] += lhs.m[row][k] * rhs.m[k][col];
 			}
 		}
 		return result;
 	}
 
-	inline FVector4 FMatrix4x4::MultiplyPoint(const FVector4& v) const
+	inline FMatrix4x4 operator*(FLOAT v, const FMatrix4x4& mat)
 	{
-		FLOAT x = m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w;
-		FLOAT y = m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w;
-		FLOAT z = m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w;
-		FLOAT w = m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w;
-		return FVector4{ x, y, z, w };
+		FMatrix4x4 result;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				result.m[i][j] = v * mat.m[i][j];
+			}
+		}
+		return result;
+	}
+
+	inline FMatrix4x4 operator*(const FMatrix4x4& mat, FLOAT v)
+	{
+		return v * mat;
+	}
+
+	inline FVector4 operator*(const FMatrix4x4& mat, const FVector4 vec)
+	{
+		return FVector4(
+			mat[0][0] * vec.x + mat[0][1] * vec.y + mat[0][2] * vec.z + mat[0][3] * vec.w,
+			mat[1][0] * vec.x + mat[1][1] * vec.y + mat[1][2] * vec.z + mat[1][3] * vec.w,
+			mat[2][0] * vec.x + mat[2][1] * vec.y + mat[2][2] * vec.z + mat[2][3] * vec.w,
+			mat[3][0] * vec.x + mat[3][1] * vec.y + mat[3][2] * vec.z + mat[3][3] * vec.w
+		);
+	}
+
+	inline FMatrix4x4 operator/(const FMatrix4x4& mat, FLOAT v)
+	{
+		FMatrix4x4 result;
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				result.m[i][j] = mat.m[i][j] / v;
+			}
+		}
+		return result;
+	}
+
+	inline bool operator==(const FMatrix4x4& lhs, const FMatrix4x4& rhs)
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				if (lhs.m[i][j] != rhs.m[i][j])
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	inline bool operator!=(const FMatrix4x4& lhs, const FMatrix4x4& rhs)
+	{
+		return !(lhs == rhs);
 	}
 }
