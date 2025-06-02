@@ -34,7 +34,7 @@ namespace nanite
 
 	private:
 		static void mergeDuplicatedVertices(Mesh* mesh);
-
+		static void mergeDuplicatedTriangles(Mesh* mesh);
 	private:
 		struct Level
 		{

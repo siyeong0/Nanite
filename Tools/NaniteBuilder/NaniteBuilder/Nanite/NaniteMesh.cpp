@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <unordered_map>
+#include <array>
 #include <cassert>
 
 #include "../Utils/Utils.h"	
@@ -37,16 +39,6 @@ namespace nanite
 			for (int ci = 0; ci < srcClusters.size(); ++ci)
 			{
 				const Cluster& srcCluster = srcClusters[ci];
-
-				std::unordered_set<int> clusterVertices;
-				for (int i = srcCluster.StartIndex; i < srcCluster.StartIndex + srcCluster.NumTriangles; ++i)
-				{
-					const Triangle& tri = srcMesh.Triangles[i];
-					clusterVertices.insert(tri.i0);
-					clusterVertices.insert(tri.i1);
-					clusterVertices.insert(tri.i2);
-				}
-				int numVerticesInCluster = static_cast<int>(clusterVertices.size());
 				std::vector<Triangle> slicedTriangles(srcMesh.Triangles.begin() + srcCluster.StartIndex, srcMesh.Triangles.begin() + srcCluster.StartIndex + srcCluster.NumTriangles);
 
 				auto [simplifiedVertices, simplifiedTriangles]
@@ -65,9 +57,10 @@ namespace nanite
 				Cluster tmpCluster;
 				tmpCluster.StartIndex = static_cast<int>(dstMesh.Triangles.size());
 				tmpCluster.NumTriangles = static_cast<int>(simplifiedTriangles.size());
+				tmpClusters.push_back(tmpCluster);
+
 				dstMesh.Vertices.insert(dstMesh.Vertices.end(), simplifiedVertices.begin(), simplifiedVertices.end());
 				dstMesh.Triangles.insert(dstMesh.Triangles.end(), simplifiedTriangles.begin(), simplifiedTriangles.end());
-				tmpClusters.push_back(tmpCluster);
 			}
 
 			mergeDuplicatedVertices(&dstMesh);
@@ -120,28 +113,71 @@ namespace nanite
 		std::unordered_map<FVector3, uint32_t, FVector3Hasher> uniqueVertexMap;
 		std::vector<FVector3> outVertices;
 
+		auto update = [&](uint32_t& i, const FVector3& v)
+			{
+				auto it = uniqueVertexMap.find(v);
+				if (it != uniqueVertexMap.end())
+				{
+					i = it->second;
+				}
+				else
+				{
+					uint32_t newIndex = static_cast<uint32_t>(outVertices.size());
+					outVertices.emplace_back(v);
+					uniqueVertexMap[v] = newIndex;
+					i = newIndex;
+				}
+			};
+
 		for (Triangle& triangle : mesh->Triangles)
 		{
-			auto update = [&](uint32_t& i, const FVector3& v)
-				{
-					auto it = uniqueVertexMap.find(v);
-					if (it != uniqueVertexMap.end())
-					{
-						i = it->second;
-					}
-					else
-					{
-						uint32_t newIndex = static_cast<uint32_t>(outVertices.size());
-						outVertices.emplace_back(v);
-						uniqueVertexMap[v] = newIndex;
-						i = newIndex;
-					}
-				};
 			update(triangle.i0, mesh->Vertices[triangle.i0]);
 			update(triangle.i1, mesh->Vertices[triangle.i1]);
 			update(triangle.i2, mesh->Vertices[triangle.i2]);
 		}
 
 		mesh->Vertices = std::move(outVertices);
+	}
+
+	void NaniteMesh::mergeDuplicatedTriangles(Mesh* mesh)
+	{
+		struct SortedTriangleKey 
+		{
+			std::array<uint32_t, 3> Indices;
+			SortedTriangleKey(uint32_t a, uint32_t b, uint32_t c) 
+			{
+				Indices = { a, b, c };
+				std::sort(Indices.begin(), Indices.end());
+			}
+			bool operator==(const SortedTriangleKey& other) const 
+			{
+				return Indices == other.Indices;
+			}
+		};
+
+		struct SortedTriangleHash 
+		{
+			size_t operator()(const SortedTriangleKey& key) const 
+			{
+				return std::hash<uint32_t>()(key.Indices[0]) ^
+					(std::hash<uint32_t>()(key.Indices[1]) << 1) ^
+					(std::hash<uint32_t>()(key.Indices[2]) << 2);
+			}
+		};
+
+		std::unordered_set<SortedTriangleKey, SortedTriangleHash> seen;
+		std::vector<Triangle> unique;
+
+		for (const Triangle& tri : mesh->Triangles)
+		{
+			SortedTriangleKey key(tri.i0, tri.i1, tri.i2);
+			if (seen.find(key) == seen.end())
+			{
+				seen.insert(key);
+				unique.push_back(tri);
+			}
+		}
+
+		mesh->Triangles = std::move(unique);
 	}
 }

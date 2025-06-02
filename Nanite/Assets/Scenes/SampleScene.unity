@@ -226,7 +226,7 @@ MonoBehaviour:
   drawNormals: 0
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
-  drawAABBs: 1
+  drawAABBs: 0
   aabbAlpha: 0.15
   boundsIndex: 0
 --- !u!1 &84401751 stripped
@@ -256,7 +256,7 @@ MonoBehaviour:
   drawNormals: 0
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
-  drawAABBs: 1
+  drawAABBs: 0
   aabbAlpha: 0.15
   boundsIndex: 0
 --- !u!1001 &210449507
@@ -315,6 +315,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L0
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4e4b7ea47a31959458909972ddfc0691, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -352,7 +356,7 @@ MonoBehaviour:
   normalColor: {r: 1, g: 0, b: 1, a: 1}
   drawAABBs: 0
   aabbAlpha: 0.15
-  boundsIndex: 0
+  boundsIndex: 1
 --- !u!1001 &245038499
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -460,7 +464,7 @@ MonoBehaviour:
   drawNormals: 0
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
-  drawAABBs: 1
+  drawAABBs: 0
   aabbAlpha: 0.15
   boundsIndex: 0
 --- !u!1001 &331201533
@@ -621,6 +625,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L7
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 8bfffd7684f1d8049ab2308ed573de66, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -674,7 +682,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &594524729
 Transform:
   m_ObjectHideFlags: 0
@@ -826,7 +834,7 @@ MonoBehaviour:
   drawNormals: 0
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
-  drawAABBs: 1
+  drawAABBs: 0
   aabbAlpha: 0.15
   boundsIndex: 0
 --- !u!1001 &665904720
@@ -1062,6 +1070,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L6
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: e7b95fdbf71aa3e4594fdfc62f241d60, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1155,6 +1167,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 9d2715f001c760c4cb47da32223dfb31, type: 3}
       propertyPath: m_Name
       value: Dragon_80K_L8
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 9d2715f001c760c4cb47da32223dfb31, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1662,6 +1678,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L2
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 38ee65f7de877424e9032e94c29b420e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1807,7 +1827,7 @@ MonoBehaviour:
   drawNormals: 0
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
-  drawAABBs: 1
+  drawAABBs: 0
   aabbAlpha: 0.15
   boundsIndex: 0
 --- !u!1001 &1448625685
@@ -1865,6 +1885,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: a88ac9f894f47e24e81ef7164dba9bb9, type: 3}
       propertyPath: m_Name
       value: Dragon_80K_L5
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: a88ac9f894f47e24e81ef7164dba9bb9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2040,6 +2064,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L1
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: acd13600296f16144905507008d054eb, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2076,7 +2104,7 @@ MonoBehaviour:
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
   drawAABBs: 0
-  aabbAlpha: 0.15
+  aabbAlpha: 0.592
   boundsIndex: 0
 --- !u!1001 &1642741593
 PrefabInstance:
@@ -2311,6 +2339,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 735f808de4ded964fb16acda6d3384a2, type: 3}
       propertyPath: m_Name
       value: Dragon_80K_L9
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 735f808de4ded964fb16acda6d3384a2, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2553,6 +2585,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L3
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 8a5f01ebe2296784bbcabbad9de21c94, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2590,7 +2626,7 @@ MonoBehaviour:
   normalColor: {r: 1, g: 0, b: 1, a: 1}
   drawAABBs: 0
   aabbAlpha: 0.15
-  boundsIndex: 0
+  boundsIndex: 74
 --- !u!1001 &2008259221
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2758,7 +2794,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1c218312c04d6ad4e939a4350329cf9c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1c218312c04d6ad4e939a4350329cf9c, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2902,6 +2938,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Dragon_80K_L4
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: d9198e8ee765661488276aec691af4f5, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2937,9 +2977,9 @@ MonoBehaviour:
   drawNormals: 0
   normalLength: 0.1
   normalColor: {r: 1, g: 0, b: 1, a: 1}
-  drawAABBs: 0
-  aabbAlpha: 0.15
-  boundsIndex: 0
+  drawAABBs: 1
+  aabbAlpha: 0.033
+  boundsIndex: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

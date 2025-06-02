@@ -1,6 +1,14 @@
 #include "NaniteBuilder.h"
 
+#include <iostream>
+#include <set>
+#include <map>
+#include <unordered_map>
+#include <algorithm>
 #include <cassert>
+
+#include "../Utils/Utils.h"
+#include "../Topology/Edge.h"
 
 namespace nanite
 {
@@ -28,6 +36,16 @@ namespace nanite
 	{
 		std::vector<Triangle>& triangles = *inoutTriangles;
 
+		auto isValidTriangle = [](const Triangle& tri)
+			{
+				return tri.i0 != tri.i1 && tri.i1 != tri.i2 && tri.i2 != tri.i0;
+			};
+
+		for (const Triangle& tri : triangles)
+		{
+			assert(isValidTriangle(tri));
+		}
+
 		// build (edge - triangle index) graph
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangles;
 		edgeToTriangles.reserve(count * 3);
@@ -43,23 +61,26 @@ namespace nanite
 		}
 
 		// build adjacency lists between triangles sharing each edge
-		std::vector<std::set<std::pair<idx_t, float>>> triangleAdj(count);
+		struct Link
+		{
+			idx_t Index;
+			idx_t Weight;
+			bool operator<(const Link& other) const { return Index < other.Index; }
+		};
+		std::vector<std::set<Link>> triangleAdj(count);
 		for (const auto& [edge, triIdxs] : edgeToTriangles)
 		{
+			//assert(triIdxs.size() <= 2);
 			if (triIdxs.size() == 2)
 			{
 				idx_t t0 = triIdxs[0] - start;
 				idx_t t1 = triIdxs[1] - start;
 				float length = (vertices[edge.a] - vertices[edge.b]).Length();
-				triangleAdj[t0].insert(std::make_pair(t1, length));
-				triangleAdj[t1].insert(std::make_pair(t0, length));
+				idx_t weight = castToWeight(length);
+				triangleAdj[t0].insert(Link{ t1, weight });
+				triangleAdj[t1].insert(Link{ t0, weight });
 			}
 		}
-
-		// helper function
-		auto castToWeight = [](float w) { return static_cast<idx_t>(w * 10000.f); };
-		auto computeArea = [](const FVector3& a, const FVector3& b, const FVector3& c)
-			{ return 0.5f * (b - a).Cross(c - a).Length(); };
 
 		// prepare METIS_PartGraphKway arguments
 		idx_t nvtxs = static_cast<idx_t>(count); // number of nodes
@@ -69,7 +90,7 @@ namespace nanite
 		std::vector<idx_t> vwgt; // weight of each node; the area of triangle -> makes clusters have approximately equal area
 		std::vector<idx_t> adjwgt; // weight of each edges; the length of edge -> makes cluster round-shaped
 		std::vector<real_t> tpwgts(nparts, 1.0f / nparts); // target weight of each partition
-		real_t ubvec = { 1.2f }; // allowed imbalance ratio
+		real_t ubvec = { 1.05f }; // allowed imbalance ratio
 		idx_t options[METIS_NOPTIONS]; // options
 		METIS_SetDefaultOptions(options);
 		options[METIS_OPTION_NUMBERING] = 0; // index starts with 0
@@ -84,31 +105,31 @@ namespace nanite
 		for (int triIdx = 0; triIdx < triangleAdj.size(); ++triIdx)
 		{
 			const auto& neighbors = triangleAdj[triIdx];
-			for (auto adjTri : neighbors)
+			for (auto adjLink : neighbors)
 			{
-				adjncy.emplace_back(adjTri.first); // index
-				adjwgt.emplace_back(castToWeight(adjTri.second)); // length of edge
+				adjncy.emplace_back(adjLink.Index); // index
+				adjwgt.emplace_back(adjLink.Weight); // length of edge
 			}
 			const Triangle& tri = triangles[triIdx];
-			vwgt.emplace_back(castToWeight(computeArea(vertices[tri.i0], vertices[tri.i1], vertices[tri.i2])));
+			vwgt.emplace_back(castToWeight(ComputeArea(vertices[tri.i0], vertices[tri.i1], vertices[tri.i2])));
 			xadj.emplace_back(static_cast<idx_t>(adjncy.size()));
 		}
-
+		
 		// METIS part graph
 		idx_t objvalOut; // cost of cutting
 		std::vector<idx_t> partOut(count); // partition data
 
 		int result = METIS_PartGraphKway(
 			&nvtxs,
-			&ncon, 
-			xadj.data(), 
+			&ncon,
+			xadj.data(),
 			adjncy.data(),
-			vwgt.data(), 
+			vwgt.data(),
 			nullptr, // memory size of each node
-			adjwgt.data(), 
+			nullptr, // adjwgt.data(),
 			&nparts,
-			tpwgts.data(), 
-			&ubvec, 
+			tpwgts.data(),
+			&ubvec,
 			options,
 			&objvalOut, partOut.data());
 
@@ -118,14 +139,13 @@ namespace nanite
 			return -1;
 		}
 
-		// reorder and cluster triangles based on partitions
+		// reorder triangles
 		std::vector<std::vector<Triangle>> reorederBuffer(nparts);
 		for (int i = 0; i < count; ++i)
 		{
 			reorederBuffer[partOut[i]].emplace_back(triangles[start + i]);
 		}
 
-		// reorder triangles
 		std::vector<Triangle> reorderedTriangles;
 		reorderedTriangles.reserve(count);
 		for (int i = 0; i < reorederBuffer.size(); ++i)
@@ -161,8 +181,10 @@ namespace nanite
 		int numGroups = static_cast<int>(std::ceilf(static_cast<float>(numClusters) / mergeGroupSize));
 		if (numGroups < 2) return -1;
 
-		std::unordered_map<Edge, std::vector<idx_t>> edgeToClusters;
+		// build (edge - cluster index) graph
+		std::unordered_map<Edge, std::set<idx_t>> edgeToClusters;
 		edgeToClusters.reserve(numTriangles * 3);
+		std::vector<idx_t> clusterWeight(numClusters);
 		for (int clusterIdx = 0; clusterIdx < clusters.size(); ++clusterIdx)
 		{
 			const Cluster& cluster = clusters[clusterIdx];
@@ -172,73 +194,91 @@ namespace nanite
 				uint32_t i0 = triangle.i0;
 				uint32_t i1 = triangle.i1;
 				uint32_t i2 = triangle.i2;
-				edgeToClusters[Edge(i0, i1)].push_back(static_cast<idx_t>(clusterIdx));
-				edgeToClusters[Edge(i1, i2)].push_back(static_cast<idx_t>(clusterIdx));
-				edgeToClusters[Edge(i2, i0)].push_back(static_cast<idx_t>(clusterIdx));
+				edgeToClusters[Edge(i0, i1)].insert(static_cast<idx_t>(clusterIdx));
+				edgeToClusters[Edge(i1, i2)].insert(static_cast<idx_t>(clusterIdx));
+				edgeToClusters[Edge(i2, i0)].insert(static_cast<idx_t>(clusterIdx));
+				clusterWeight[clusterIdx] += castToWeight(ComputeArea(vertices[i0], vertices[i1], vertices[i2]));
 			}
 		}
 
-		// partition the triangle graph using METIS
-		std::vector<std::set<idx_t>> clusterAdj(numClusters);
-		for (const auto& [edge, clusterList] : edgeToClusters)
+		// build adjacency lists between triangles sharing each edge
+		// vector of map<neighbor index, link weight>
+		std::vector<std::map<idx_t, idx_t>> clusterAdj(numClusters);
+		for (const auto& [edge, clusterIdxs] : edgeToClusters)
 		{
-			for (size_t i = 0; i < clusterList.size(); ++i)
+			//assert(clusterIdxs.size() <= 2);
+			if (clusterIdxs.size() == 2)
 			{
-				for (size_t j = i + 1; j < clusterList.size(); ++j)
-				{
-					idx_t c0 = clusterList[i];
-					idx_t c1 = clusterList[j];
-					if (c0 != c1)
-					{
-						clusterAdj[c0].insert(c1);
-						clusterAdj[c1].insert(c0);
-					}
-				}
+				auto it = clusterIdxs.begin();
+				idx_t c0 = *(it++);
+				idx_t c1 = *(it);
+				float length = (vertices[edge.a] - vertices[edge.b]).Length();
+				idx_t weight = castToWeight(length);
+				// assert idx_t is initialized 0
+				clusterAdj[c0][c1] += weight;
+				clusterAdj[c1][c0] += weight;
 			}
 		}
 
-		std::vector<idx_t> xadj;
-		std::vector<idx_t> adjncy;
-
-		xadj.push_back(0);
-		for (const auto& neighbors : clusterAdj)
-		{
-			for (auto adjTri : neighbors)
-			{
-				adjncy.push_back(adjTri);
-			}
-			xadj.push_back(static_cast<idx_t>(adjncy.size()));
-		}
-
-		idx_t ncon = 1;
-
-		idx_t* vwgt = nullptr;
-		idx_t* vsize = nullptr;
-		idx_t* adjwgt = nullptr;
-
-		std::vector<real_t> tpwgts(numGroups, 1.0f / numGroups);
-		real_t ubvec = { 2.0f };
-
-		idx_t options[METIS_NOPTIONS];
+		// prepare METIS_PartGraphKway arguments
+		idx_t nvtxs = static_cast<idx_t>(numClusters); // number of nodes
+		idx_t ncon = 1; // number of weights in each node
+		std::vector<idx_t> xadj; // start index of each node
+		std::vector<idx_t> adjncy; // adjacent list
+		std::vector<idx_t> vwgt; // weight of each node; the area of triangle -> makes clusters have approximately equal area
+		std::vector<idx_t> adjwgt; // weight of each edges; the length of edge -> makes cluster round-shaped
+		std::vector<real_t> tpwgts(numGroups, 1.0f / numGroups); // target weight of each partition
+		real_t ubvec = { 1.2f }; // allowed imbalance ratio
+		idx_t options[METIS_NOPTIONS]; // options
 		METIS_SetDefaultOptions(options);
-		options[METIS_OPTION_NUMBERING] = 0;
+		options[METIS_OPTION_NUMBERING] = 0; // index starts with 0
+		options[METIS_OPTION_CONTIG] = 1; // force to connect adj nodes
 
-		idx_t objval;
-		std::vector<idx_t> partOut;
-		partOut.resize(numClusters);
+		// fill buffers
+		xadj.reserve(numClusters + 1);
+		adjncy.reserve(clusterAdj.size() * 3);
+		vwgt.reserve(numClusters);
+		adjwgt.reserve(clusterAdj.size() * 3);
+
+		xadj.emplace_back(0); // starts with 0
+		for (int clusterIdx = 0; clusterIdx < clusterAdj.size(); ++clusterIdx)
+		{
+			const auto& neighbors = clusterAdj[clusterIdx];
+			for (auto adjCluster : neighbors)
+			{
+				adjncy.emplace_back(adjCluster.first); // index
+				adjwgt.emplace_back(adjCluster.second); // length of edge
+			}
+			vwgt.emplace_back(clusterWeight[clusterIdx]);
+			xadj.emplace_back(static_cast<idx_t>(adjncy.size()));
+		}
+
+		// METIS part graph
+		idx_t objvalOut; // cost of cutting
+		std::vector<idx_t> partOut(numClusters); // partition data
 
 		int result = METIS_PartGraphKway(
-			static_cast<idx_t*>(&numClusters), &ncon, xadj.data(), adjncy.data(),
-			vwgt, vsize, adjwgt, &numGroups,
-			tpwgts.data(), &ubvec, options, &objval, partOut.data());
+			&nvtxs,
+			&ncon,
+			xadj.data(),
+			adjncy.data(),
+			vwgt.data(),
+			nullptr, // memory size of each node
+			adjwgt.data(),
+			&numGroups,
+			tpwgts.data(),
+			&ubvec,
+			options,
+			&objvalOut, partOut.data());
 
 		if (!(result == METIS_OK))
 		{
 			std::cerr << "METIS partitioning failed with error code " << result << "\n";
 			return -1;
 		}
-
-		// reorder and cluster triangles based on partitions
+		
+		
+		// reorder triangles
 		std::vector<std::vector<Triangle>> reorederBuffer(numGroups);
 		for (int i = 0; i < numClusters; ++i)
 		{
@@ -246,23 +286,26 @@ namespace nanite
 			reorederBuffer[partOut[i]].insert(reorederBuffer[partOut[i]].end(),
 				triangles.begin() + cluster.StartIndex, triangles.begin() + cluster.StartIndex + cluster.NumTriangles);
 		}
-
 		triangles.clear();
-		outClusters->clear();
-		outClusters->reserve(numGroups);
-		for (int i = 0; i < numGroups; ++i)
+		for (int i = 0; i < reorederBuffer.size(); ++i)
 		{
-			if (reorederBuffer[i].size() == 0)
-				continue;
 			triangles.insert(triangles.end(), reorederBuffer[i].begin(), reorederBuffer[i].end());
-			Cluster cluster;
-			cluster.StartIndex = static_cast<int>(triangles.size() - reorederBuffer[i].size());
-			cluster.NumTriangles = static_cast<int>(reorederBuffer[i].size());
-			cluster.Bounds = computeBoundingBox(vertices, triangles, cluster);
-			outClusters->emplace_back(std::move(cluster));
 		}
 
-		return static_cast<int>(objval);
+		// add clusters
+		outClusters->clear();
+		outClusters->resize(numGroups);
+		int indexOffset = 0;
+		for (int i = 0; i < numGroups; ++i)
+		{
+			if (reorederBuffer[i].size() == 0) continue;
+			(*outClusters)[i].StartIndex = static_cast<int>(indexOffset);
+			(*outClusters)[i].NumTriangles = static_cast<int>(reorederBuffer[i].size());
+			(*outClusters)[i].Bounds = computeBoundingBox(vertices, triangles, (*outClusters)[i]);
+			indexOffset += static_cast<int>(reorederBuffer[i].size());
+		}
+
+		return static_cast<int>(objvalOut);
 	}
 
 	AABB NaniteBuilder::computeBoundingBox(

@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include "../../Math/Math.h"
+#include "../../Utils/Utils.h"
 #include "../../Topology/Edge.h"
 #include "../../Topology/Triangle.h"
 #include "Quadric.h"
@@ -33,9 +34,7 @@ namespace nanite
 				const FVector3& v1 = vertices[tri.i1];
 				const FVector3& v2 = vertices[tri.i2];
 				// compute plane
-				FVector3 edge1 = v1 - v0;
-				FVector3 edge2 = v2 - v0;
-				FVector3 normal = edge1.Cross(edge2).Norm();
+				FVector3 normal = (v1 - v0).Cross(v2 - v0).Norm();
 				float d = -normal.Dot(v0);
 
 				quadrics[tri.i0].AddPlane(normal, d);
@@ -60,9 +59,10 @@ namespace nanite
 			}
 
 			// collect boundary vertices
-			std::set<int> boundaryVertIndices;
+			std::set<uint32_t> boundaryVertIndices;
 			for (const auto& [edge, count] : edgeUsage)
 			{
+				// assert(count <= 2);
 				if (count == 1)
 				{
 					boundaryVertIndices.insert(edge.a);
@@ -75,8 +75,10 @@ namespace nanite
 			std::vector<Triangle> simplifiedTriangles(triangles);
 
 			// helper functions
-			auto isValidVertex = [](const FVector3& v) { return !std::isnan(v.x); };
-			auto isValidTriangle = [](const Triangle& tri) {return tri.i0 != tri.i1 && tri.i1 != tri.i2 && tri.i2 != tri.i0; };
+			auto isValidTriangle = [](const Triangle& tri)
+				{
+					return tri.i0 != tri.i1 && tri.i1 != tri.i2 && tri.i2 != tri.i0;
+				};
 
 			while (simplifiedTriangles.size() > targetTriangleCount)
 			{
@@ -89,9 +91,8 @@ namespace nanite
 
 				for (const Edge& edge : edges)
 				{
-					FVector3 vertexA = simplifiedVertices[edge.a];
-					FVector3 vertexB = simplifiedVertices[edge.b];
-					if (!isValidVertex(vertexA) || !isValidVertex(vertexB)) continue;
+					const FVector3 vertexA = simplifiedVertices[edge.a];
+					const FVector3 vertexB = simplifiedVertices[edge.b];
 
 					bool aIsBoundary = boundaryVertIndices.count(edge.a);
 					bool bIsBoundary = boundaryVertIndices.count(edge.b);
@@ -146,18 +147,10 @@ namespace nanite
 				if (bestEdge.a == -1 || bestEdge.b == -1)
 					break;
 
-				// update vertex position
-				simplifiedVertices[bestEdge.a] = bestPos;
-				if (bestBIsBoundary)
-				{
-					boundaryVertIndices.erase(bestEdge.b);
-					boundaryVertIndices.insert(bestEdge.a);
-				}
-
-				// mark removed vertex to NaN
-				simplifiedVertices[bestEdge.b] = FVector3(std::numeric_limits<float>::quiet_NaN(), 0, 0);
-
-				// update quadrics
+				// update vertex and quadric
+				uint32_t keepIdx = bestEdge.a;
+				uint32_t removeIdx = bestEdge.b;
+				simplifiedVertices[keepIdx] = bestPos;
 				quadrics[bestEdge.a] = bestQuadric;
 
 				// update triangles
@@ -165,12 +158,28 @@ namespace nanite
 				updatedSimpTriangles.reserve(simplifiedTriangles.size());
 				for (Triangle& tri : simplifiedTriangles)
 				{
-					tri.i0 = tri.i0 == bestEdge.b ? bestEdge.a : tri.i0;
-					tri.i1 = tri.i1 == bestEdge.b ? bestEdge.a : tri.i1;
-					tri.i2 = tri.i2 == bestEdge.b ? bestEdge.a : tri.i2;
+					tri.i0 = tri.i0 == removeIdx ? keepIdx : tri.i0;
+					tri.i1 = tri.i1 == removeIdx ? keepIdx : tri.i1;
+					tri.i2 = tri.i2 == removeIdx ? keepIdx : tri.i2;
 					if (isValidTriangle(tri)) updatedSimpTriangles.emplace_back(tri);
 				}
 				simplifiedTriangles = std::move(updatedSimpTriangles);
+
+				// update boundaries
+				if (bestBIsBoundary)
+				{
+					boundaryVertIndices.erase(removeIdx);
+					boundaryVertIndices.insert(keepIdx);
+				}
+
+				// update edges
+				edges.clear();
+				for (const Triangle& tri : simplifiedTriangles)
+				{
+					edges.insert(Edge(tri.i0, tri.i1));
+					edges.insert(Edge(tri.i1, tri.i2));
+					edges.insert(Edge(tri.i2, tri.i0));
+				}
 			}
 
 			// remap vertices
