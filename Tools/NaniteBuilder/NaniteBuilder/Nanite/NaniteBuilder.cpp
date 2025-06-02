@@ -122,20 +122,29 @@ namespace nanite
 		std::vector<std::vector<Triangle>> reorederBuffer(nparts);
 		for (int i = 0; i < count; ++i)
 		{
-			reorederBuffer[partOut[i]].push_back(triangles[start + i]);
+			reorederBuffer[partOut[i]].emplace_back(triangles[start + i]);
 		}
 
+		// reorder triangles
+		std::vector<Triangle> reorderedTriangles;
+		reorderedTriangles.reserve(count);
+		for (int i = 0; i < reorederBuffer.size(); ++i)
+		{
+			reorderedTriangles.insert(reorderedTriangles.end(), reorederBuffer[i].begin(), reorederBuffer[i].end());
+		}
 		triangles.erase(triangles.begin() + start, triangles.begin() + start + count);
+		triangles.insert(triangles.begin() + start, reorderedTriangles.begin(), reorderedTriangles.end());
+
+		// add clusters
 		outClusters->clear();
 		outClusters->resize(nparts);
-		int insertIndex = start;
+		int indexOffset = start;
 		for (int i = 0; i < nparts; ++i)
 		{
-			triangles.insert(triangles.begin() + insertIndex, reorederBuffer[i].begin(), reorederBuffer[i].end());
-			(*outClusters)[i].StartIndex = static_cast<int>(insertIndex);
+			(*outClusters)[i].StartIndex = static_cast<int>(indexOffset);
 			(*outClusters)[i].NumTriangles = static_cast<int>(reorederBuffer[i].size());
 			(*outClusters)[i].Bounds = computeBoundingBox(vertices, triangles, (*outClusters)[i]);
-			insertIndex += static_cast<int>(reorederBuffer[i].size());
+			indexOffset += static_cast<int>(reorederBuffer[i].size());
 		}
 
 		return static_cast<int>(objvalOut);
