@@ -16,7 +16,7 @@ namespace nanite
 		std::vector<Cluster>* outClusters)
 	{
 		return SplitMeshIntoClusters(
-			nparts, 0, static_cast<int>(inoutTriangles->size()), 
+			nparts, 0, static_cast<int>(inoutTriangles->size()),
 			vertices, inoutTriangles, outClusters);
 	}
 
@@ -28,7 +28,7 @@ namespace nanite
 	{
 		std::vector<Triangle>& triangles = *inoutTriangles;
 
-		// build triangle graph
+		// build (edge - triangle index) graph
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangles;
 		edgeToTriangles.reserve(count * 3);
 		for (int triIdx = start; triIdx < start + count; ++triIdx)
@@ -37,58 +37,80 @@ namespace nanite
 			uint32_t i0 = triangle.i0;
 			uint32_t i1 = triangle.i1;
 			uint32_t i2 = triangle.i2;
-			edgeToTriangles[Edge(i0, i1)].push_back(static_cast<idx_t>(triIdx));
-			edgeToTriangles[Edge(i1, i2)].push_back(static_cast<idx_t>(triIdx));
-			edgeToTriangles[Edge(i2, i0)].push_back(static_cast<idx_t>(triIdx));
+			edgeToTriangles[Edge(i0, i1)].emplace_back(static_cast<idx_t>(triIdx));
+			edgeToTriangles[Edge(i1, i2)].emplace_back(static_cast<idx_t>(triIdx));
+			edgeToTriangles[Edge(i2, i0)].emplace_back(static_cast<idx_t>(triIdx));
 		}
 
-		// partition the triangle graph using METIS
-		std::vector<std::set<idx_t>> triangleAdj(count);
-		for (const auto& [edge, tris] : edgeToTriangles)
+		// build adjacency lists between triangles sharing each edge
+		std::vector<std::set<std::pair<idx_t, float>>> triangleAdj(count);
+		for (const auto& [edge, triIdxs] : edgeToTriangles)
 		{
-			if (tris.size() == 2)
+			if (triIdxs.size() == 2)
 			{
-				idx_t t0 = tris[0] - start;
-				idx_t t1 = tris[1] - start;
-				triangleAdj[t0].insert(t1);
-				triangleAdj[t1].insert(t0);
+				idx_t t0 = triIdxs[0] - start;
+				idx_t t1 = triIdxs[1] - start;
+				float length = (vertices[edge.a] - vertices[edge.b]).Length();
+				triangleAdj[t0].insert(std::make_pair(t1, length));
+				triangleAdj[t1].insert(std::make_pair(t0, length));
 			}
 		}
 
-		std::vector<idx_t> xadj;
-		std::vector<idx_t> adjncy;
+		// helper function
+		auto castToWeight = [](float w) { return static_cast<idx_t>(w * 10000.f); };
+		auto computeArea = [](const FVector3& a, const FVector3& b, const FVector3& c)
+			{ return 0.5f * (b - a).Cross(c - a).Length(); };
 
-		xadj.push_back(0);
-		for (const auto& neighbors : triangleAdj)
+		// prepare METIS_PartGraphKway arguments
+		idx_t nvtxs = static_cast<idx_t>(count); // number of nodes
+		idx_t ncon = 1; // number of weights in each node
+		std::vector<idx_t> xadj; // start index of each node
+		std::vector<idx_t> adjncy; // adjacent list
+		std::vector<idx_t> vwgt; // weight of each node; the area of triangle -> makes clusters have approximately equal area
+		std::vector<idx_t> adjwgt; // weight of each edges; the length of edge -> makes cluster round-shaped
+		std::vector<real_t> tpwgts(nparts, 1.0f / nparts); // target weight of each partition
+		real_t ubvec = { 1.2f }; // allowed imbalance ratio
+		idx_t options[METIS_NOPTIONS]; // options
+		METIS_SetDefaultOptions(options);
+		options[METIS_OPTION_NUMBERING] = 0; // index starts with 0
+
+		// fill buffers
+		xadj.reserve(count + 1);
+		adjncy.reserve(triangleAdj.size() * 3);
+		vwgt.reserve(count);
+		adjwgt.reserve(triangleAdj.size() * 3);
+
+		xadj.emplace_back(0); // starts with 0
+		for (int triIdx = 0; triIdx < triangleAdj.size(); ++triIdx)
 		{
+			const auto& neighbors = triangleAdj[triIdx];
 			for (auto adjTri : neighbors)
 			{
-				adjncy.push_back(adjTri);
+				adjncy.emplace_back(adjTri.first); // index
+				adjwgt.emplace_back(castToWeight(adjTri.second)); // length of edge
 			}
-			xadj.push_back(static_cast<idx_t>(adjncy.size()));
+			const Triangle& tri = triangles[triIdx];
+			vwgt.emplace_back(castToWeight(computeArea(vertices[tri.i0], vertices[tri.i1], vertices[tri.i2])));
+			xadj.emplace_back(static_cast<idx_t>(adjncy.size()));
 		}
 
-		idx_t ncon = 1;
-
-		idx_t* vwgt = nullptr;
-		idx_t* vsize = nullptr;
-		idx_t* adjwgt = nullptr;
-
-		std::vector<real_t> tpwgts(nparts, 1.0f / nparts);
-		real_t ubvec = { 1.08f };
-
-		idx_t options[METIS_NOPTIONS];
-		METIS_SetDefaultOptions(options);
-		options[METIS_OPTION_NUMBERING] = 0;
-
-		idx_t objval;
-		std::vector<idx_t> partOut;
-		partOut.resize(count);
+		// METIS part graph
+		idx_t objvalOut; // cost of cutting
+		std::vector<idx_t> partOut(count); // partition data
 
 		int result = METIS_PartGraphKway(
-			static_cast<idx_t*>(&count), &ncon, xadj.data(), adjncy.data(),
-			vwgt, vsize, adjwgt, &nparts,
-			tpwgts.data(), &ubvec, options, &objval, partOut.data());
+			&nvtxs,
+			&ncon, 
+			xadj.data(), 
+			adjncy.data(),
+			vwgt.data(), 
+			nullptr, // memory size of each node
+			adjwgt.data(), 
+			&nparts,
+			tpwgts.data(), 
+			&ubvec, 
+			options,
+			&objvalOut, partOut.data());
 
 		if (!(result == METIS_OK))
 		{
@@ -116,7 +138,7 @@ namespace nanite
 			insertIndex += static_cast<int>(reorederBuffer[i].size());
 		}
 
-		return static_cast<int>(objval);
+		return static_cast<int>(objvalOut);
 	}
 
 	int NaniteBuilder::MergeClusters(const std::vector<Cluster>& clusters, Mesh* inoutMesh, std::vector<Cluster>* outClusters)
