@@ -18,15 +18,6 @@ namespace nanite
 {
 	namespace qem
 	{
-
-		inline void ComputePlane(const FVector3& v0, const FVector3& v1, const FVector3& v2, FVector3& normal, float& d)
-		{
-			FVector3 edge1 = v1 - v0;
-			FVector3 edge2 = v2 - v0;
-			normal = edge1.Cross(edge2).Norm();
-			d = -normal.Dot(v0);
-		}
-
 		inline void ComputeVertexQuadrics(
 			const std::vector<Triangle>& triangles,
 			const std::vector<FVector3>& vertices,
@@ -36,12 +27,14 @@ namespace nanite
 
 			for (const Triangle& tri : triangles)
 			{
-				FVector3 normal;
-				float d;
 				const FVector3& v0 = vertices[tri.i0];
 				const FVector3& v1 = vertices[tri.i1];
 				const FVector3& v2 = vertices[tri.i2];
-				ComputePlane(v0, v1, v2, normal, d);
+				// compute plane
+				FVector3 edge1 = v1 - v0;
+				FVector3 edge2 = v2 - v0;
+				FVector3 normal = edge1.Cross(edge2).Norm();
+				float d = -normal.Dot(v0);
 
 				outQuadrics[tri.i0].AddPlane(normal, d);
 				outQuadrics[tri.i1].AddPlane(normal, d);
@@ -90,12 +83,11 @@ namespace nanite
 			{
 				outPos = v1;
 			}
-			if (bFix2)
+			else if (bFix2)
 			{
 				outPos = v2;
 			}
-
-			if (!OptimalPosition(q, outPos))
+			else if (!OptimalPosition(q, outPos))
 			{
 				outPos = (v1 + v2) * 0.5f;
 			}

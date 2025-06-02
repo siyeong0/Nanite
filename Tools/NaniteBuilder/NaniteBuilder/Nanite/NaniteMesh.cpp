@@ -106,7 +106,7 @@ namespace nanite
 			for (int i = 0; i < level.Clusters.size(); ++i)
 			{
 				const Cluster& cluster = level.Clusters[i];
-				FVector3 color = HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
+				FVector3 color = HSVtoRGB(std::fmod(i / 16.f, 1.f), 1.f, 1.f);
 				for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
 				{
 					level.Mesh.Triangles[j].Color = color;

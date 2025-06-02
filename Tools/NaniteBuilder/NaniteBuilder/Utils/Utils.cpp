@@ -245,7 +245,7 @@ namespace nanite
 		{
 			const Cluster& cluster = clusters[i];
 			const AABB& aabb = cluster.Bounds;
-			FVector3 color = HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
+			FVector3 color = HSVtoRGB(std::fmod(i / 16.f, 1.f), 1.f, 1.f);
 			file << aabb.Min.x << " " << aabb.Min.y << " " << aabb.Min.z << " "
 				<< aabb.Max.x << " " << aabb.Max.y << " " << aabb.Max.z << " "
 				<< color.x << " " << color.y << " " << color.z << "\n";
