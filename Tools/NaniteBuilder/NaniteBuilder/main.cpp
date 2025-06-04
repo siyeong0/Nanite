@@ -7,10 +7,12 @@ int main(void)
 {
 	std::cout << "NaniteBuilder is running!" << std::endl;
 
-	//const char* modelFile = "../../../Resources/Sphere.obj";
-	//const char* outputPath = "../../../Nanite/Assets/Resources/Sphere/";
-	const char* modelFile = "../../../Resources/Dragon_8K.obj";
-	const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_8K/";
+	//const char* modelFile = "../../../Resources/SphereH.obj";
+	//const char* outputPath = "../../../Nanite/Assets/Resources/SphereH/";
+	 const char* modelFile = "../../../Resources/Plane.obj";
+	const char* outputPath = "../../../Nanite/Assets/Resources/Plane/";
+	//const char* modelFile = "../../../Resources/Dragon_8K.obj";
+	//const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_8K/";
 	//const char* modelFile = "../../../Resources/Dragon_80K.obj";
 	//const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_80K/";
 

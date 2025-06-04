@@ -36,16 +36,6 @@ namespace nanite
 	{
 		std::vector<Triangle>& triangles = *inoutTriangles;
 
-		auto isValidTriangle = [](const Triangle& tri)
-			{
-				return tri.i0 != tri.i1 && tri.i1 != tri.i2 && tri.i2 != tri.i0;
-			};
-
-		for (const Triangle& tri : triangles)
-		{
-			assert(isValidTriangle(tri));
-		}
-
 		// build (edge - triangle index) graph
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangles;
 		edgeToTriangles.reserve(count * 3);
@@ -90,7 +80,7 @@ namespace nanite
 		std::vector<idx_t> vwgt; // weight of each node; the area of triangle -> makes clusters have approximately equal area
 		std::vector<idx_t> adjwgt; // weight of each edges; the length of edge -> makes cluster round-shaped
 		std::vector<real_t> tpwgts(nparts, 1.0f / nparts); // target weight of each partition
-		real_t ubvec = { 1.05f }; // allowed imbalance ratio
+		real_t ubvec = { 1.2f }; // allowed imbalance ratio
 		idx_t options[METIS_NOPTIONS]; // options
 		METIS_SetDefaultOptions(options);
 		options[METIS_OPTION_NUMBERING] = 0; // index starts with 0
@@ -126,7 +116,7 @@ namespace nanite
 			adjncy.data(),
 			vwgt.data(),
 			nullptr, // memory size of each node
-			nullptr, // adjwgt.data(),
+			adjwgt.data(),
 			&nparts,
 			tpwgts.data(),
 			&ubvec,

@@ -38,4 +38,6 @@ namespace nanite
 	bool SaveClustersMetadata(const std::vector<Cluster> clusters, const std::string& path, const std::string& name);
 
 	FVector3 HSVtoRGB(float h, float s, float v);
+
+	void CheckDuplicateTriangles(const std::vector<Triangle>& triangles);
 }

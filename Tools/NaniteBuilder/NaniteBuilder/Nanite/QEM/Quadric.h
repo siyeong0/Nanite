@@ -11,7 +11,7 @@ namespace nanite
 			Quadric() : Q(FMatrix4x4::Zero()) {}
 
 			inline void AddPlane(const FVector3& normal, float d);
-			inline float Evaluate(const FVector4& vec) const;
+			inline float Evaluate(const FVector4& v) const;
 			inline float Evaluate(const FVector3& vec3) const;
 		};
 
@@ -27,31 +27,21 @@ namespace nanite
 			}
 		}
 
-		inline float Quadric::Evaluate(const FVector4& vec) const
+		inline float Quadric::Evaluate(const FVector4& v) const
 		{
 			float result = 0.0f;
+			FVector4 qv;
 			for (int i = 0; i < 4; ++i)
 			{
-				for (int j = 0; j < 4; ++j)
-				{
-					result += vec[i] * Q[i][j] * vec[j];
-				}
+				qv[i] = Q[i][0] * v[0] + Q[i][1] * v[1] + Q[i][2] * v[2] + Q[i][3] * v[3];
 			}
-			return result;
+			return v.Dot(qv);
 		}
 
 		inline float Quadric::Evaluate(const FVector3& vec3) const
 		{
 			const FVector4 vec = FVector4(vec3.x, vec3.y, vec3.z, 1.f);
-			float result = 0.0f;
-			for (int i = 0; i < 4; ++i)
-			{
-				for (int j = 0; j < 4; ++j)
-				{
-					result += vec[i] * Q[i][j] * vec[j];
-				}
-			}
-			return result;
+			return Evaluate(vec);
 		}
 	}
 }

@@ -36,13 +36,16 @@ namespace nanite
 			Mesh& dstMesh = dstLevel.Mesh;
 
 			std::vector<Cluster> tmpClusters;
+			int nn = 0;
 			for (int ci = 0; ci < srcClusters.size(); ++ci)
 			{
 				const Cluster& srcCluster = srcClusters[ci];
 				std::vector<Triangle> slicedTriangles(srcMesh.Triangles.begin() + srcCluster.StartIndex, srcMesh.Triangles.begin() + srcCluster.StartIndex + srcCluster.NumTriangles);
-
+				CheckDuplicateTriangles(slicedTriangles);
+				nn += slicedTriangles.size();
 				auto [simplifiedVertices, simplifiedTriangles]
 					= qem::SimplifyMesh(static_cast<int>(slicedTriangles.size()) / 2, slicedTriangles, srcMesh.Vertices);
+				CheckDuplicateTriangles(simplifiedTriangles);
 				int offset = static_cast<int>(dstMesh.Vertices.size());
 				for (Triangle& tri : simplifiedTriangles)
 				{
@@ -50,6 +53,7 @@ namespace nanite
 					tri.i1 += offset;
 					tri.i2 += offset;
 				}
+				CheckDuplicateTriangles(simplifiedTriangles);
 
 				if (simplifiedTriangles.size() == 0)
 					continue;
@@ -62,10 +66,14 @@ namespace nanite
 				dstMesh.Vertices.insert(dstMesh.Vertices.end(), simplifiedVertices.begin(), simplifiedVertices.end());
 				dstMesh.Triangles.insert(dstMesh.Triangles.end(), simplifiedTriangles.begin(), simplifiedTriangles.end());
 			}
-
+			assert(srcMesh.Triangles.size() == nn);
+			CheckDuplicateTriangles(dstMesh.Triangles);
 			mergeDuplicatedVertices(&dstMesh);
+			mergeDuplicatedTriangles(&dstMesh);
+			CheckDuplicateTriangles(dstMesh.Triangles);
 
 			std::vector<Cluster> dstClusters;
+			dstClusters.reserve(tmpClusters.size() * 2);
 			for (const Cluster& tmpCluster : tmpClusters)
 			{
 				std::vector<Cluster> subClusters;
@@ -99,7 +107,7 @@ namespace nanite
 			for (int i = 0; i < level.Clusters.size(); ++i)
 			{
 				const Cluster& cluster = level.Clusters[i];
-				FVector3 color = HSVtoRGB(std::fmod(i / 16.f, 1.f), 1.f, 1.f);
+				FVector3 color = HSVtoRGB(std::fmod(i / 8.f, 1.f), 1.f, 1.f);
 				for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
 				{
 					level.Mesh.Triangles[j].Color = color;

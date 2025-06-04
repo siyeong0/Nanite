@@ -2,6 +2,9 @@
 
 #include <iostream>
 #include <fstream>
+#include <set>
+#include <vector>
+#include <array>
 
 #include <assimp/Importer.hpp>
 #include <assimp/Exporter.hpp>
@@ -245,7 +248,7 @@ namespace nanite
 		{
 			const Cluster& cluster = clusters[i];
 			const AABB& aabb = cluster.Bounds;
-			FVector3 color = HSVtoRGB(std::fmod(i / 16.f, 1.f), 1.f, 1.f);
+			FVector3 color = HSVtoRGB(std::fmod(i / 8.f, 1.f), 1.f, 1.f);
 			file << aabb.Min.x << " " << aabb.Min.y << " " << aabb.Min.z << " "
 				<< aabb.Max.x << " " << aabb.Max.y << " " << aabb.Max.z << " "
 				<< color.x << " " << color.y << " " << color.z << "\n";
@@ -277,5 +280,35 @@ namespace nanite
 			rgb = FVector3(c, 0, x);
 
 		return rgb + FVector3{ m, m, m };
+	}
+
+	using namespace nanite;
+
+	void CheckDuplicateTriangles(const std::vector<Triangle>& triangles)
+	{
+		std::set<std::array<uint32_t, 3>> triangleSet;
+		bool hasDuplicate = false;
+
+		for (size_t i = 0; i < triangles.size(); ++i)
+		{
+			const Triangle& tri = triangles[i];
+
+			// 정점 인덱스를 정렬해서 방향과 무관한 중복도 걸러냄
+			std::array<uint32_t, 3> sortedIndices = { tri.i0, tri.i1, tri.i2 };
+			std::sort(sortedIndices.begin(), sortedIndices.end());
+
+			if (!triangleSet.insert(sortedIndices).second)
+			{
+				std::cout << "Duplicate triangle found at index " << i
+					<< " with vertices (" << tri.i0 << ", " << tri.i1 << ", " << tri.i2 << ")\n";
+				//assert(false);
+				hasDuplicate = true;
+			}
+		}
+
+		if (!hasDuplicate)
+		{
+			std::cout << "No duplicate triangles found.\n";
+		}
 	}
 }
