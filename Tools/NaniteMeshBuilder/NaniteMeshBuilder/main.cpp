@@ -1,8 +1,26 @@
 #include <iostream>
 
+#include "MeshSimplfier\MeshSimplifier.h"
+#include "Utils\Utils.h"
+
 int main(void)
 {
 	std::cout << "Hello world" << std::endl;
+
+	std::string modelPath = "../../../Resources/Dragon_8K.obj";
+	std::string modelName = nanite::utils::ExtractFileName(modelPath);
+	std::string outputPath = "../../../Nanite/Assets/Resources/QEM/";
+
+	nanite::Mesh mesh;
+	mesh.LoadFromFile(modelPath);
+	mesh.SaveToFile(outputPath, modelName + "_" + std::to_string(0), ".obj");
+
+	nanite::MeshSimplifier meshSimplifier;
+	for (int i = 0; i < 5; ++i)
+	{
+		mesh = meshSimplifier.SimplifyMesh(mesh, mesh.NumTriangles() / 2);
+		mesh.SaveToFile(outputPath, modelName + "_" + std::to_string(i + 1), ".obj");
+	}
 
 	return 0;
 }

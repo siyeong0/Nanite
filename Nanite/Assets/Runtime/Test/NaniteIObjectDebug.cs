@@ -77,20 +77,28 @@ public class RotateObject : MonoBehaviour
 
 			Gizmos.color = normalColor;
 
-			for (int i = 0; i < triangles.Length; i += 3)
+			//for (int i = 0; i < triangles.Length; i += 3)
+			//{
+			//	Vector3 v0 = vertices[triangles[i]];
+			//	Vector3 v1 = vertices[triangles[i + 1]];
+			//	Vector3 v2 = vertices[triangles[i + 2]];
+
+			//	Vector3 center = (v0 + v1 + v2) / 3f;
+
+			//	Vector3 edge1 = v1 - v0;
+			//	Vector3 edge2 = v2 - v0;
+			//	Vector3 triNormal = Vector3.Cross(edge1, edge2).normalized;
+			//	triNormal = transform.TransformDirection(triNormal);
+
+			//	Gizmos.DrawLine(center, center + triNormal * normalLength);
+			//}
+
+			for (int i = 0; i < normals.Length; ++i)
 			{
-				Vector3 v0 = vertices[triangles[i]];
-				Vector3 v1 = vertices[triangles[i + 1]];
-				Vector3 v2 = vertices[triangles[i + 2]];
+				Vector3 v = vertices[i];
+				Vector3 n = normals[i];
 
-				Vector3 center = (v0 + v1 + v2) / 3f;
-
-				Vector3 edge1 = v1 - v0;
-				Vector3 edge2 = v2 - v0;
-				Vector3 triNormal = Vector3.Cross(edge1, edge2).normalized;
-				triNormal = transform.TransformDirection(triNormal);
-
-				Gizmos.DrawLine(center, center + triNormal * normalLength);
+				Gizmos.DrawLine(v, v + n * normalLength);
 			}
 		}
 	}

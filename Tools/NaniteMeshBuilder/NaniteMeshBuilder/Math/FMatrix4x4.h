@@ -308,11 +308,13 @@ namespace nanite
 
 	inline bool operator==(const FMatrix4x4& lhs, const FMatrix4x4& rhs)
 	{
+		constexpr float epsilon = 1e-6f;
+
 		for (int i = 0; i < 4; ++i)
 		{
 			for (int j = 0; j < 4; ++j)
 			{
-				if (lhs.m[i][j] != rhs.m[i][j])
+				if (std::abs(lhs.m[i][j] - rhs.m[i][j]) > epsilon)
 				{
 					return false;
 				}

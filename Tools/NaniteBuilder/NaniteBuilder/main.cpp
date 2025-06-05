@@ -9,7 +9,7 @@ int main(void)
 
 	//const char* modelFile = "../../../Resources/SphereH.obj";
 	//const char* outputPath = "../../../Nanite/Assets/Resources/SphereH/";
-	 const char* modelFile = "../../../Resources/Plane.obj";
+	const char* modelFile = "../../../Resources/Plane.obj";
 	const char* outputPath = "../../../Nanite/Assets/Resources/Plane/";
 	//const char* modelFile = "../../../Resources/Dragon_8K.obj";
 	//const char* outputPath = "../../../Nanite/Assets/Resources/Dragon_8K/";

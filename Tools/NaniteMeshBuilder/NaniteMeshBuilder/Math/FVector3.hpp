@@ -43,7 +43,7 @@ namespace nanite
 		FLOAT SqrMagnitude() const;
 		FLOAT Length() const;
 
-		FVector3 Norm() const;
+		FVector3 Normalized() const;
 		void Normalize();
 
 		FVector3 operator+=(const FVector3& other);
@@ -126,7 +126,7 @@ namespace nanite
 		return SqrMagnitude();
 	}
 
-	inline FVector3 FVector3::Norm() const
+	inline FVector3 FVector3::Normalized() const
 	{
 		FLOAT l = Length();
 		if (l == 0)
