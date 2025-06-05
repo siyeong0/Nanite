@@ -50,6 +50,7 @@ namespace nanite
 	void Mesh::ComputeNormals()
 	{
 		Normals.clear();
+		Normals.reserve(NumTriangles());
 		for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
 		{
 			Normals.emplace_back(utils::ComputeNormal(GetTriangleVertices(triIdx)));

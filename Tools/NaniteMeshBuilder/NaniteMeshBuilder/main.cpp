@@ -7,6 +7,10 @@ int main(void)
 {
 	std::cout << "Hello world" << std::endl;
 
+	//std::string modelPath = "../../../Resources/Sphere.obj";
+	//std::string modelName = nanite::utils::ExtractFileName(modelPath);
+	//std::string outputPath = "../../../Nanite/Assets/Resources/QEM/";
+
 	std::string modelPath = "../../../Resources/Dragon_8K.obj";
 	std::string modelName = nanite::utils::ExtractFileName(modelPath);
 	std::string outputPath = "../../../Nanite/Assets/Resources/QEM/";

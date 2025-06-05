@@ -120,12 +120,16 @@ namespace nanite
 		// simplify loop
 		while(targetTriangleCount < srcMesh.NumTriangles())
 		{
+		CONTINUE:
 			Mesh dstMesh;
 			dstMesh.Vertices = srcMesh.Vertices;
+			dstMesh.Indices.reserve(srcMesh.Indices.size());
 
 			// there's no edge to collapse
 			if (collapseSet.size() == 0)
-				return resultMesh;
+			{
+				break;
+			}
 
 			const CollapseCandidate& bestCandidate = *collapseSet.begin();
 
@@ -170,7 +174,10 @@ namespace nanite
 				const FVector3 newNormal = dstMesh.Normals[newTriIdx];
 				if (oldNormal.Dot(newNormal) < 0.0f)
 				{
-					return resultMesh;
+					// if flipped triangle exists,
+					// exclude current best candidate
+					collapseSet.erase(collapseSet.begin());
+					goto CONTINUE;
 				}
 			}
 
@@ -178,7 +185,7 @@ namespace nanite
 			{
 				auto it = std::find_if(collapseSet.begin(), collapseSet.end(),
 					[&](const CollapseCandidate& c) {return c.Edge == Edge(removeIdx, other); });
-				collapseSet.erase(it);
+				if (it != collapseSet.end()) collapseSet.erase(it);
 			}
 
 			edgeMap[keepIdx].insert(edgeMap[removeIdx].begin(), edgeMap[removeIdx].end());
