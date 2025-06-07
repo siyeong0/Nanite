@@ -282,8 +282,6 @@ namespace nanite
 		return rgb + FVector3{ m, m, m };
 	}
 
-	using namespace nanite;
-
 	void CheckDuplicateTriangles(const std::vector<Triangle>& triangles)
 	{
 		std::set<std::array<uint32_t, 3>> triangleSet;
