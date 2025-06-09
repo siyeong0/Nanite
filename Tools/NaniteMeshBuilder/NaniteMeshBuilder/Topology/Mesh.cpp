@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
+#include <filesystem>
 #include <regex>
 
 #include <assimp/Importer.hpp>
@@ -245,6 +246,19 @@ namespace nanite
 			aiColor4D color(1.0f, 1.0f, 1.0f, 1.0f);
 			outScene->mMaterials[0]->AddProperty(&color, 1, AI_MATKEY_COLOR_DIFFUSE);
 			outScene->mNumMaterials = 1;
+		}
+
+		if (!std::filesystem::exists(directory)) 
+		{
+			if (std::filesystem::create_directory(directory)) 
+			{
+				std::cout << "Folder" << "\'" << directory << "\' " << "created successfully.\n";
+			}
+			else 
+			{
+				std::cout << "Failed to create folder" << "\'" << directory << "\' " << ".\n";
+				return false;
+			}
 		}
 
 		Assimp::Exporter exporter;

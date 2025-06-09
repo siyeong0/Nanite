@@ -3,6 +3,7 @@
 #include <iostream>
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <queue>
 
 #include "Quadric.h"
@@ -31,7 +32,6 @@ namespace nanite
 		// collect edges
 		std::set<Edge> edges;
 		std::map<Edge, int> edgeUsage;
-		std::map<uint32_t, std::set<uint32_t>> edgeMap;
 		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
 		{
 			auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
@@ -41,14 +41,16 @@ namespace nanite
 			edgeUsage[e0]++;
 			edgeUsage[e1]++;
 			edgeUsage[e2]++;
+		}
 
+		// collect triangles
+		std::unordered_map<uint32_t, std::set<uint32_t>> vertToTriMap;
+		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
+		{
 			auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
-			edgeMap[i0].insert(i1);
-			edgeMap[i0].insert(i2);
-			edgeMap[i1].insert(i0);
-			edgeMap[i1].insert(i2);
-			edgeMap[i2].insert(i0);
-			edgeMap[i2].insert(i1);
+			vertToTriMap[i0].insert(triIdx);
+			vertToTriMap[i1].insert(triIdx);
+			vertToTriMap[i2].insert(triIdx);
 		}
 
 		// collect boundary vertices
@@ -69,19 +71,24 @@ namespace nanite
 			Edge Edge;
 			Quadric Quadric;
 			float Error = std::numeric_limits<float>::max();
-			FVector3 Position;
+			FVector3 Position = FVector3::Zero();
+			float Length = 0;
+			bool bFixB = false;
+			int Phase = 0;
 
 			bool operator<(const CollapseCandidate& other) const
 			{
-				return std::tie(Error, Edge) < std::tie(other.Error, other.Edge);
+				return std::tie(Phase, Error, Length, Edge) < std::tie(other.Phase, other.Error, other.Length, other.Edge);
 			}
 		};
 		// this set works like priority queue
 		std::set<CollapseCandidate> collapseSet;
-
+		
 		// lamda to build collapse candidate
-		auto buildEdgeCollapse = [&quadrics](const Edge& e, const Mesh& mesh)
+		auto buildEdgeCollapse = [&quadrics](const Edge& e, const Mesh& mesh, int phase, bool bFixA, bool bFixB)
 			{
+				const FVector3& vertexA = mesh.Vertices[e.GetA()];
+				const FVector3& vertexB = mesh.Vertices[e.GetB()];
 				CollapseCandidate candidate;
 				candidate.Edge = e;
 				candidate.Quadric.Q = quadrics[e.GetA()].Q + quadrics[e.GetB()].Q;
@@ -91,7 +98,15 @@ namespace nanite
 					candidate.Quadric.Q[1][0], candidate.Quadric.Q[1][1], candidate.Quadric.Q[1][2],
 					candidate.Quadric.Q[2][0], candidate.Quadric.Q[2][1], candidate.Quadric.Q[2][2] };
 				FVector3 edgeVector3 = { -candidate.Quadric.Q[0][3], -candidate.Quadric.Q[1][3], -candidate.Quadric.Q[2][3] };
-				if (fabs(edgeQuadric3x3.Determinant()) > 1e-6f) // valid
+				if (bFixA)
+				{
+					candidate.Position = vertexA;
+				}
+				else if (bFixB)
+				{
+					candidate.Position = vertexB;
+				}
+				else if (fabs(edgeQuadric3x3.Determinant()) > 1e-6f) // valid
 				{
 					candidate.Position = edgeQuadric3x3.Inverse() * edgeVector3;
 				}
@@ -101,147 +116,256 @@ namespace nanite
 				}
 				// error
 				candidate.Error = candidate.Quadric.Evaluate(candidate.Position);
+				candidate.Length = (vertexA - vertexB).Length();;
+				candidate.bFixB = bFixB;
+				candidate.Phase = phase;
 
 				return candidate;
 			};
+
+		std::unordered_map<Edge, std::set<CollapseCandidate>::iterator> edgeToCollpaseMap;
 
 		// build priority queue
 		Mesh srcMesh(mesh);
 		for (const Edge& edge : edges)
 		{
-			bool aIsBoundary = boundaryVertIndices.find(edge.GetA()) != boundaryVertIndices.end();
-			bool bIsBoundary = boundaryVertIndices.find(edge.GetB()) != boundaryVertIndices.end();
-			if (aIsBoundary || bIsBoundary) continue;
+			bool bFixA = boundaryVertIndices.find(edge.GetA()) != boundaryVertIndices.end();
+			bool bFixB = boundaryVertIndices.find(edge.GetB()) != boundaryVertIndices.end();
+			if (bFixA || bFixB) continue;
 
 			// push to priority queue
-			collapseSet.insert(buildEdgeCollapse(edge, srcMesh));
+			auto [iter, b] = collapseSet.insert(buildEdgeCollapse(edge, srcMesh, 0, bFixA, bFixB));
+			edgeToCollpaseMap[edge] = iter;
 		}
 
 		// simplify loop
-		while(targetTriangleCount < srcMesh.NumTriangles())
+		int numValidVertices = srcMesh.NumVertices();
+		int numValidTriangles = srcMesh.NumTriangles();
+		while (targetTriangleCount < numValidTriangles)
 		{
 		CONTINUE:
-			Mesh dstMesh;
-			dstMesh.Vertices = srcMesh.Vertices;
-			dstMesh.Indices.reserve(srcMesh.Indices.size());
-
-			// there's no edge to collapse
 			if (collapseSet.size() == 0)
 			{
+				// there's no edge to collapse
 				break;
 			}
 
+			// pick best one from priority queue
 			const CollapseCandidate& bestCandidate = *collapseSet.begin();
-
+			const FVector3 optimalPosition = bestCandidate.Position;
 			uint32_t keepIdx = bestCandidate.Edge.GetA();
 			uint32_t removeIdx = bestCandidate.Edge.GetB();
-			dstMesh.Vertices[keepIdx] = bestCandidate.Position;
-
-			std::vector<std::pair<int, int>> updatedTrianglePairs;
-			for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
+			if (bestCandidate.bFixB)
 			{
-				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triIdx);
-				bool bI0 = (i0 == removeIdx) || (i0 == keepIdx);
-				bool bI1 = (i1 == removeIdx) || (i1 == keepIdx);
-				bool bI2 = (i2 == removeIdx) || (i2 == keepIdx);
-
-				uint32_t newI0 = bI0 ? keepIdx : i0;
-				uint32_t newI1 = bI1 ? keepIdx : i1;
-				uint32_t newI2 = bI2 ? keepIdx : i2;
-				bool bValid = (newI0 != newI1 && newI1 != newI2 && newI2 != newI0);
-
-				if (bValid)
-				{
-					dstMesh.Indices.emplace_back(newI0);
-					dstMesh.Indices.emplace_back(newI1);
-					dstMesh.Indices.emplace_back(newI2);
-				}
-
-				if (bI0 || bI1 || bI2)
-				{
-					updatedTrianglePairs.emplace_back(
-						std::make_pair(triIdx, bValid ? dstMesh.NumTriangles() - 1 : -1));
-				}
+				keepIdx = bestCandidate.Edge.GetB();
+				removeIdx = bestCandidate.Edge.GetA();
 			}
 
-			dstMesh.ComputeNormals();
+			const std::set<uint32_t> trisWithKeep = vertToTriMap[keepIdx];
+			const std::set<uint32_t> trisWithRemove = vertToTriMap[removeIdx];
 
-			for (auto [oldTriIdx, newTriIdx] : updatedTrianglePairs)
+			// triangles that have both keepIdx and removeIdx (the intersection) need to be removed.
+			std::set<uint32_t> removedTriangles;
+			std::set_intersection(
+				trisWithKeep.begin(), trisWithKeep.end(),
+				trisWithRemove.begin(), trisWithRemove.end(),
+				std::inserter(removedTriangles, removedTriangles.begin()));
+
+			if (removedTriangles.size() < 2)
 			{
-				if (newTriIdx == -1) continue;
-				// check if any triangles are flipped
-				const FVector3& oldNormal = srcMesh.Normals[oldTriIdx];
-				const FVector3 newNormal = dstMesh.Normals[newTriIdx];
-				if (oldNormal.Dot(newNormal) < 0.0f)
+				edgeToCollpaseMap.erase(collapseSet.begin()->Edge);
+				collapseSet.erase(collapseSet.begin());
+				goto CONTINUE;
+			}
+
+			// triangles that have in either keepIdx or removeIdx (the union) need to be updated,
+			// except for those that are being deleted.
+			std::set<uint32_t> updatedTrianglesTmp;
+			std::set_union(
+				trisWithKeep.begin(), trisWithKeep.end(),
+				trisWithRemove.begin(), trisWithRemove.end(),
+				std::inserter(updatedTrianglesTmp, updatedTrianglesTmp.begin()));
+			std::set<uint32_t> updatedTriangles;
+			std::set_difference(
+				updatedTrianglesTmp.begin(), updatedTrianglesTmp.end(),
+				removedTriangles.begin(), removedTriangles.end(),
+				std::inserter(updatedTriangles, updatedTriangles.begin()));
+
+			// check for flipped triangles using normal vectors.
+			for (const uint32_t updatedTriIdx : updatedTriangles)
+			{
+				const FVector3& oldNormal = srcMesh.Normals[updatedTriIdx];
+				// compute the updated normal
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+				const FVector3& v0 = (i0 == removeIdx) || (i0 == keepIdx) ? optimalPosition : srcMesh.Vertices[i0];
+				const FVector3& v1 = (i1 == removeIdx) || (i1 == keepIdx) ? optimalPosition : srcMesh.Vertices[i1];
+				const FVector3& v2 = (i2 == removeIdx) || (i2 == keepIdx) ? optimalPosition : srcMesh.Vertices[i2];
+				const FVector3 newNormal = utils::ComputeNormal(v0, v1, v2);
+				if (oldNormal.Dot(newNormal) < 1e-4f)
 				{
 					// if flipped triangle exists,
 					// exclude current best candidate
+					edgeToCollpaseMap.erase(collapseSet.begin()->Edge);
 					collapseSet.erase(collapseSet.begin());
 					goto CONTINUE;
 				}
 			}
 
-			for (uint32_t other : edgeMap[removeIdx])
+			// update counts
+			numValidVertices -= 1;
+			numValidTriangles -= static_cast<int>(removedTriangles.size());
+			assert(removedTriangles.size() == 2);
+
+			// update collapse queue
+			// erase edges with removeIdx
+			for (const uint32_t triWithRemoveIdx : trisWithRemove)
 			{
-				auto it = std::find_if(collapseSet.begin(), collapseSet.end(),
-					[&](const CollapseCandidate& c) {return c.Edge == Edge(removeIdx, other); });
-				if (it != collapseSet.end()) collapseSet.erase(it);
+				auto [e0, e1, e2] = srcMesh.GetTriangleEdges(triWithRemoveIdx);
+				for (const Edge& e : { e0, e1, e2 })
+				{
+					if (e.GetA() == removeIdx || e.GetB() == removeIdx)
+					{
+						if (edgeToCollpaseMap.find(e) != edgeToCollpaseMap.end())
+						{
+							auto it = edgeToCollpaseMap[e];
+							edgeToCollpaseMap.erase(e);
+							collapseSet.erase(it);
+						}
+					}
+				}
 			}
 
-			edgeMap[keepIdx].insert(edgeMap[removeIdx].begin(), edgeMap[removeIdx].end());
-			for (uint32_t rmNeighbor : edgeMap[removeIdx])
+			// update vertex to triangles map
+			vertToTriMap[keepIdx].insert(vertToTriMap[removeIdx].begin(), vertToTriMap[removeIdx].end());
+			for (const uint32_t removedTriIdx : removedTriangles)
 			{
-				edgeMap[rmNeighbor].erase(removeIdx);
-				edgeMap[rmNeighbor].insert(keepIdx);
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(removedTriIdx);
+				vertToTriMap[i0].erase(removedTriIdx);
+				vertToTriMap[i1].erase(removedTriIdx);
+				vertToTriMap[i2].erase(removedTriIdx);
 			}
-			edgeMap[keepIdx].erase(keepIdx);
-			edgeMap.erase(removeIdx);
+			vertToTriMap.erase(removeIdx);
 
-			std::unordered_set<Edge> affectedEdges;
-			for (auto [oldTriIdx, newTriIdx] : updatedTrianglePairs)
+			// update quadrics; remove old planes
+			// before updating vertices and triangles
+			for (const uint32_t updatedTriIdx : updatedTrianglesTmp)
 			{
 				// update quadrics
-				auto [oldI0, oldI1, oldI2] = srcMesh.GetTriangleIndices(oldTriIdx);
-				auto [oldV0, oldV1, oldV2] = srcMesh.GetTriangleVertices(oldTriIdx);
-				const FVector3& oldNormal = srcMesh.Normals[oldTriIdx];
-				float oldD = -oldNormal.Dot(oldV0);
-				quadrics[oldI0].RemovePlane(oldNormal, oldD);
-				quadrics[oldI1].RemovePlane(oldNormal, oldD);
-				quadrics[oldI2].RemovePlane(oldNormal, oldD);
-
-				for (uint32_t other : edgeMap[oldI0]) affectedEdges.insert(Edge(oldI0, other));
-				for (uint32_t other : edgeMap[oldI1]) affectedEdges.insert(Edge(oldI1, other));
-				for (uint32_t other : edgeMap[oldI2]) affectedEdges.insert(Edge(oldI2, other));
-
-				if (newTriIdx == -1) continue;
-				auto [newI0, newI1, newI2] = dstMesh.GetTriangleIndices(newTriIdx);
-				auto [newV0, newV1, newV2] = dstMesh.GetTriangleVertices(newTriIdx);
-				const FVector3& newNormal = dstMesh.Normals[newTriIdx];
-				float newD = -newNormal.Dot(newV0);
-				quadrics[newI0].AddPlane(newNormal, newD);
-				quadrics[newI1].AddPlane(newNormal, newD);
-				quadrics[newI2].AddPlane(newNormal, newD);
-
-				for (uint32_t other : edgeMap[newI0]) affectedEdges.insert(Edge(newI0, other));
-				for (uint32_t other : edgeMap[newI1]) affectedEdges.insert(Edge(newI1, other));
-				for (uint32_t other : edgeMap[newI2]) affectedEdges.insert(Edge(newI2, other));
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
+				const FVector3& n = srcMesh.Normals[updatedTriIdx];
+				float d = -n.Dot(v0);
+				quadrics[i0].RemovePlane(n, d);
+				quadrics[i1].RemovePlane(n, d);
+				quadrics[i2].RemovePlane(n, d);
 			}
 
+			// update the vertices
+			srcMesh.Vertices[keepIdx] = optimalPosition;
+			srcMesh.Vertices[removeIdx] = FVector3{ std::numeric_limits<float>::quiet_NaN(), 0, 0 };
+			// update indices
+			// replace removeIdx to keepIdx
+			for (const uint32_t triWithRemoveIdx : trisWithRemove)
+			{
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triWithRemoveIdx);
+				i0 = (i0 == removeIdx) ? keepIdx : i0;
+				i1 = (i1 == removeIdx) ? keepIdx : i1;
+				i2 = (i2 == removeIdx) ? keepIdx : i2;
+			}
+			// mark removed triangles
+			for (const uint32_t removedTriIdx : removedTriangles)
+			{
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(removedTriIdx);
+				i0 = 0; i1 = 0; i2 = 0;
+			}
+			// update normals
+			for (const uint32_t updatedTriIdx : updatedTriangles)
+			{
+				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
+				srcMesh.Normals[updatedTriIdx] = utils::ComputeNormal(v0, v1, v2);
+			}
+
+			// update quadrics; add new planes
+			// after updating vertices and triangles
+			for (const uint32_t updatedTriIdx : updatedTriangles)
+			{
+				// update quadrics
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
+				const FVector3& n = srcMesh.Normals[updatedTriIdx];
+				float d = -n.Dot(v0);
+				quadrics[i0].AddPlane(n, d);
+				quadrics[i1].AddPlane(n, d);
+				quadrics[i2].AddPlane(n, d);
+			}
+
+			// collect affected edges
+			std::unordered_set<Edge> affectedEdges;
+			for (const uint32_t updatedTriIdx : updatedTriangles)
+			{
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+				for (const uint32_t i : { i0, i1, i2 })
+				{
+					for (const uint32_t t : vertToTriMap[i])
+					{
+						auto [e0, e1, e2] = srcMesh.GetTriangleEdges(t);
+						for (const Edge& e : { e0, e1, e2 })
+						{
+							if (e.GetA() == i || e.GetB() == i)
+							{
+								affectedEdges.insert(e);
+							}
+						}
+					}
+				}
+			}
+
+			// update collapse candidates queue
 			for (const Edge& affEdge : affectedEdges)
 			{
-				bool aIsBoundary = boundaryVertIndices.find(affEdge.GetA()) != boundaryVertIndices.end();
-				bool bIsBoundary = boundaryVertIndices.find(affEdge.GetB()) != boundaryVertIndices.end();
-				if (aIsBoundary || bIsBoundary) continue;
+				bool bFixA = boundaryVertIndices.find(affEdge.GetA()) != boundaryVertIndices.end();
+				bool bFixB = boundaryVertIndices.find(affEdge.GetB()) != boundaryVertIndices.end();
+				if (bFixA && bFixB) continue;
 
-				auto it = std::find_if(collapseSet.begin(), collapseSet.end(),
-					[&](const CollapseCandidate& c) {return c.Edge == affEdge; });
-				if (it != collapseSet.end()) collapseSet.erase(it);
-				collapseSet.insert(buildEdgeCollapse(affEdge, dstMesh));
+				int phase = 0;
+				if (edgeToCollpaseMap.find(affEdge) != edgeToCollpaseMap.end())
+				{
+					auto it = edgeToCollpaseMap[affEdge];
+					phase = it->Phase;
+					edgeToCollpaseMap.erase(affEdge);
+					collapseSet.erase(it);
+				}
+
+				auto [iter, b] = collapseSet.insert(buildEdgeCollapse(affEdge, srcMesh, phase, bFixA, bFixB));
+				edgeToCollpaseMap[affEdge] = iter;
 			}
-
-			srcMesh = std::move(dstMesh);
 		}
-		resultMesh = std::move(srcMesh);
+
+		resultMesh.Vertices.reserve(numValidVertices);
+		resultMesh.Indices.reserve(numValidTriangles * 3);
+		resultMesh.Normals.reserve(numValidTriangles);
+		resultMesh.Colors.reserve(numValidTriangles);
+
+		std::unordered_map<uint32_t, uint32_t> vertIndexMap;
+		for (int i = 0; i < srcMesh.Vertices.size(); ++i)
+		{
+			const FVector3& v = srcMesh.Vertices[i];
+			if (std::isnan(v.x)) continue;
+			resultMesh.Vertices.emplace_back(v);
+			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
+		}
+
+		for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
+		{
+			auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triIdx);
+			if (i0 == 0 && i1 == 0 && i2 == 0) continue;
+			resultMesh.Indices.emplace_back(vertIndexMap[i0]);
+			resultMesh.Indices.emplace_back(vertIndexMap[i1]);
+			resultMesh.Indices.emplace_back(vertIndexMap[i2]);
+			resultMesh.Normals.emplace_back(srcMesh.Normals[triIdx]);
+			resultMesh.Colors.emplace_back(srcMesh.Colors[triIdx]);
+		}
+
 		return resultMesh;
 	}
 }

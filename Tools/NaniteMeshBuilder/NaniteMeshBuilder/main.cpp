@@ -7,13 +7,14 @@ int main(void)
 {
 	std::cout << "Hello world" << std::endl;
 
-	//std::string modelPath = "../../../Resources/Sphere.obj";
-	//std::string modelName = nanite::utils::ExtractFileName(modelPath);
-	//std::string outputPath = "../../../Nanite/Assets/Resources/QEM/";
+	std::string modelPath = "../../../Resources/Sphere.obj";
+	//std::string modelPath = "../../../Resources/SphereH.obj";
+	//std::string modelPath = "../../../Resources/Plane.obj";
+	//std::string modelPath = "../../../Resources/Dragon_8K.obj";
+	//std::string modelPath = "../../../Resources/Dragon_80K.obj";
 
-	std::string modelPath = "../../../Resources/Dragon_8K.obj";
 	std::string modelName = nanite::utils::ExtractFileName(modelPath);
-	std::string outputPath = "../../../Nanite/Assets/Resources/QEM/";
+	std::string outputPath = "../../../Nanite/Assets/Resources/QEM/" + modelName;
 
 	nanite::Mesh mesh;
 	mesh.LoadFromFile(modelPath);
