@@ -1,6 +1,7 @@
 #pragma once
 #include "Geometry.h"
 #include "Path.h"
+#include "PRIME_ARRAY.h"
 
 namespace nanite
 {
@@ -38,6 +39,33 @@ namespace nanite
 				rgb = FVector3(c, 0, x);
 
 			return rgb + FVector3{ m, m, m };
+		}
+
+		inline bool IsPrime(size_t num)
+		{
+			if (num < 2) return false;
+			size_t limit = static_cast<size_t>(std::sqrt(num));
+			for (size_t p : PRIME_ARRAY) 
+			{
+				if (p > limit) break;
+				if (num % p == 0) return false;
+			}
+			return true;
+		}
+
+		inline size_t NextPrime(size_t n)
+		{
+			auto begin = std::begin(PRIME_ARRAY);
+			auto end = std::end(PRIME_ARRAY);
+			auto it = std::upper_bound(begin, end, n);
+			if (it != end) 
+			{
+				return *it;
+			}
+			else 
+			{
+				return 0;
+			}
 		}
 	}
 }

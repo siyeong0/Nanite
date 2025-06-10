@@ -1,56 +1,52 @@
 #include "MeshSimplifier.h"
 
 #include <iostream>
-#include <set>
 #include <map>
-#include <unordered_map>
-#include <queue>
 
-#include "Quadric.h"
 #include "../Utils/Utils.h"
+#include "CollapseQueue.h"
 
 namespace nanite
 {
-	Mesh MeshSimplifier::SimplifyMesh(const Mesh& mesh, int targetTriangleCount) const
-	{
-		Mesh resultMesh;
 
-		// compute edge quadrics
+	Mesh SimplifyMesh(const Mesh& mesh, int targetTriangleCount)
+	{
+		// constants
+		const FVector3 INVALID_VERTEX = FVector3{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+		const std::tuple<uint32_t, uint32_t, uint32_t> INVALID_TRIANGLE = std::make_tuple(std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max());
+
+		// prepare buffers
+		Mesh srcMesh(mesh);
+
 		std::vector<Quadric> quadrics;
+		std::set<Edge> edges;
+		std::map<Edge, int> edgeUsage;
+		std::unordered_map<uint32_t, std::set<uint32_t>> vertToTriMap;
+
 		quadrics.resize(mesh.Vertices.size());
+		vertToTriMap.reserve(utils::NextPrime(mesh.Vertices.size()));
 		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
 		{
 			auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
 			auto [v0, v1, v2] = mesh.GetTriangleVertices(triIdx);
+			auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
+			// compute quadrics
 			const FVector3& normal = mesh.Normals[triIdx];
 			float d = -normal.Dot(v0);
 			quadrics[i0].AddPlane(normal, d);
 			quadrics[i1].AddPlane(normal, d);
 			quadrics[i2].AddPlane(normal, d);
-		}
-
-		// collect edges
-		std::set<Edge> edges;
-		std::map<Edge, int> edgeUsage;
-		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
-		{
-			auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
-			edges.insert(e0);
-			edges.insert(e1);
-			edges.insert(e2);
+			// collect edges
+			edges.emplace(e0);
+			edges.emplace(e1);
+			edges.emplace(e2);
 			edgeUsage[e0]++;
 			edgeUsage[e1]++;
 			edgeUsage[e2]++;
-		}
-
-		// collect triangles
-		std::unordered_map<uint32_t, std::set<uint32_t>> vertToTriMap;
-		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
-		{
-			auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
-			vertToTriMap[i0].insert(triIdx);
-			vertToTriMap[i1].insert(triIdx);
-			vertToTriMap[i2].insert(triIdx);
+			// collect triangles
+			vertToTriMap[i0].emplace(triIdx);
+			vertToTriMap[i1].emplace(triIdx);
+			vertToTriMap[i2].emplace(triIdx);
 		}
 
 		// collect boundary vertices
@@ -60,98 +56,34 @@ namespace nanite
 			assert(count <= 2);
 			if (count == 1)
 			{
-				boundaryVertIndices.insert(edge.GetA());
-				boundaryVertIndices.insert(edge.GetB());
+				boundaryVertIndices.emplace(edge.GetA());
+				boundaryVertIndices.emplace(edge.GetB());
 			}
 		}
 
-		// collase candidate buffer
-		struct CollapseCandidate
-		{
-			Edge Edge;
-			Quadric Quadric;
-			float Error = std::numeric_limits<float>::max();
-			FVector3 Position = FVector3::Zero();
-			float Length = 0;
-			bool bFixB = false;
-			int Phase = 0;
-
-			bool operator<(const CollapseCandidate& other) const
-			{
-				return std::tie(Phase, Error, Length, Edge) < std::tie(other.Phase, other.Error, other.Length, other.Edge);
-			}
-		};
-		// this set works like priority queue
-		std::set<CollapseCandidate> collapseSet;
-		
-		// lamda to build collapse candidate
-		auto buildEdgeCollapse = [&quadrics](const Edge& e, const Mesh& mesh, int phase, bool bFixA, bool bFixB)
-			{
-				const FVector3& vertexA = mesh.Vertices[e.GetA()];
-				const FVector3& vertexB = mesh.Vertices[e.GetB()];
-				CollapseCandidate candidate;
-				candidate.Edge = e;
-				candidate.Quadric.Q = quadrics[e.GetA()].Q + quadrics[e.GetB()].Q;
-				// find optimal position
-				FMatrix3x3 edgeQuadric3x3 = {
-					candidate.Quadric.Q[0][0], candidate.Quadric.Q[0][1], candidate.Quadric.Q[0][2],
-					candidate.Quadric.Q[1][0], candidate.Quadric.Q[1][1], candidate.Quadric.Q[1][2],
-					candidate.Quadric.Q[2][0], candidate.Quadric.Q[2][1], candidate.Quadric.Q[2][2] };
-				FVector3 edgeVector3 = { -candidate.Quadric.Q[0][3], -candidate.Quadric.Q[1][3], -candidate.Quadric.Q[2][3] };
-				if (bFixA)
-				{
-					candidate.Position = vertexA;
-				}
-				else if (bFixB)
-				{
-					candidate.Position = vertexB;
-				}
-				else if (fabs(edgeQuadric3x3.Determinant()) > 1e-6f) // valid
-				{
-					candidate.Position = edgeQuadric3x3.Inverse() * edgeVector3;
-				}
-				else
-				{
-					candidate.Position = (mesh.Vertices[e.GetA()] + mesh.Vertices[e.GetB()]) * 0.5f; // center of edge
-				}
-				// error
-				candidate.Error = candidate.Quadric.Evaluate(candidate.Position);
-				candidate.Length = (vertexA - vertexB).Length();;
-				candidate.bFixB = bFixB;
-				candidate.Phase = phase;
-
-				return candidate;
-			};
-
-		std::unordered_map<Edge, std::set<CollapseCandidate>::iterator> edgeToCollpaseMap;
-
-		// build priority queue
-		Mesh srcMesh(mesh);
+		// priority queue of collapses
+		// smaller error has higher priority
+		CollapseQueue collapseQueue(srcMesh, quadrics, boundaryVertIndices);
+		collapseQueue.Reserve(edges.size());
 		for (const Edge& edge : edges)
 		{
-			bool bFixA = boundaryVertIndices.find(edge.GetA()) != boundaryVertIndices.end();
-			bool bFixB = boundaryVertIndices.find(edge.GetB()) != boundaryVertIndices.end();
-			if (bFixA || bFixB) continue;
-
-			// push to priority queue
-			auto [iter, b] = collapseSet.insert(buildEdgeCollapse(edge, srcMesh, 0, bFixA, bFixB));
-			edgeToCollpaseMap[edge] = iter;
+			collapseQueue.Insert(edge);
 		}
 
-		// simplify loop
+		// simplificataion loop
 		int numValidVertices = srcMesh.NumVertices();
 		int numValidTriangles = srcMesh.NumTriangles();
 		while (targetTriangleCount < numValidTriangles)
 		{
 		CONTINUE:
-			if (collapseSet.size() == 0)
+			if (collapseQueue.Size() == 0)
 			{
 				// there's no edge to collapse
 				break;
 			}
 
 			// pick best one from priority queue
-			const CollapseCandidate& bestCandidate = *collapseSet.begin();
+			const Collapse& bestCandidate = collapseQueue.PickBest();
 			const FVector3 optimalPosition = bestCandidate.Position;
 			uint32_t keepIdx = bestCandidate.Edge.GetA();
 			uint32_t removeIdx = bestCandidate.Edge.GetB();
@@ -163,7 +95,6 @@ namespace nanite
 
 			const std::set<uint32_t> trisWithKeep = vertToTriMap[keepIdx];
 			const std::set<uint32_t> trisWithRemove = vertToTriMap[removeIdx];
-
 			// triangles that have both keepIdx and removeIdx (the intersection) need to be removed.
 			std::set<uint32_t> removedTriangles;
 			std::set_intersection(
@@ -171,10 +102,10 @@ namespace nanite
 				trisWithRemove.begin(), trisWithRemove.end(),
 				std::inserter(removedTriangles, removedTriangles.begin()));
 
+			// the edge must be belongs to two triangles
 			if (removedTriangles.size() < 2)
 			{
-				edgeToCollpaseMap.erase(collapseSet.begin()->Edge);
-				collapseSet.erase(collapseSet.begin());
+				collapseQueue.Erase(bestCandidate);
 				goto CONTINUE;
 			}
 
@@ -205,13 +136,12 @@ namespace nanite
 				{
 					// if flipped triangle exists,
 					// exclude current best candidate
-					edgeToCollpaseMap.erase(collapseSet.begin()->Edge);
-					collapseSet.erase(collapseSet.begin());
+					collapseQueue.Erase(bestCandidate);
 					goto CONTINUE;
 				}
 			}
 
-			// update counts
+			// update count values
 			numValidVertices -= 1;
 			numValidTriangles -= static_cast<int>(removedTriangles.size());
 			assert(removedTriangles.size() == 2);
@@ -225,12 +155,7 @@ namespace nanite
 				{
 					if (e.GetA() == removeIdx || e.GetB() == removeIdx)
 					{
-						if (edgeToCollpaseMap.find(e) != edgeToCollpaseMap.end())
-						{
-							auto it = edgeToCollpaseMap[e];
-							edgeToCollpaseMap.erase(e);
-							collapseSet.erase(it);
-						}
+						collapseQueue.Erase(e);
 					}
 				}
 			}
@@ -246,8 +171,7 @@ namespace nanite
 			}
 			vertToTriMap.erase(removeIdx);
 
-			// update quadrics; remove old planes
-			// before updating vertices and triangles
+			// before updating vertices and triangles, update quadrics; remove old planes
 			for (const uint32_t updatedTriIdx : updatedTrianglesTmp)
 			{
 				// update quadrics
@@ -260,11 +184,10 @@ namespace nanite
 				quadrics[i2].RemovePlane(n, d);
 			}
 
-			// update the vertices
+			// update vertices
 			srcMesh.Vertices[keepIdx] = optimalPosition;
-			srcMesh.Vertices[removeIdx] = FVector3{ std::numeric_limits<float>::quiet_NaN(), 0, 0 };
-			// update indices
-			// replace removeIdx to keepIdx
+			srcMesh.Vertices[removeIdx] = INVALID_VERTEX;
+			// update indices; replace removeIdx to keepIdx
 			for (const uint32_t triWithRemoveIdx : trisWithRemove)
 			{
 				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triWithRemoveIdx);
@@ -275,8 +198,7 @@ namespace nanite
 			// mark removed triangles
 			for (const uint32_t removedTriIdx : removedTriangles)
 			{
-				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(removedTriIdx);
-				i0 = 0; i1 = 0; i2 = 0;
+				srcMesh.GetTriangleIndices(removedTriIdx) = INVALID_TRIANGLE;
 			}
 			// update normals
 			for (const uint32_t updatedTriIdx : updatedTriangles)
@@ -313,7 +235,7 @@ namespace nanite
 						{
 							if (e.GetA() == i || e.GetB() == i)
 							{
-								affectedEdges.insert(e);
+								affectedEdges.emplace(e);
 							}
 						}
 					}
@@ -323,24 +245,12 @@ namespace nanite
 			// update collapse candidates queue
 			for (const Edge& affEdge : affectedEdges)
 			{
-				bool bFixA = boundaryVertIndices.find(affEdge.GetA()) != boundaryVertIndices.end();
-				bool bFixB = boundaryVertIndices.find(affEdge.GetB()) != boundaryVertIndices.end();
-				if (bFixA && bFixB) continue;
-
-				int phase = 0;
-				if (edgeToCollpaseMap.find(affEdge) != edgeToCollpaseMap.end())
-				{
-					auto it = edgeToCollpaseMap[affEdge];
-					phase = it->Phase;
-					edgeToCollpaseMap.erase(affEdge);
-					collapseSet.erase(it);
-				}
-
-				auto [iter, b] = collapseSet.insert(buildEdgeCollapse(affEdge, srcMesh, phase, bFixA, bFixB));
-				edgeToCollpaseMap[affEdge] = iter;
+				int phase = collapseQueue.Erase(affEdge);
+				collapseQueue.Insert(affEdge, phase);
 			}
 		}
 
+		Mesh resultMesh;
 		resultMesh.Vertices.reserve(numValidVertices);
 		resultMesh.Indices.reserve(numValidTriangles * 3);
 		resultMesh.Normals.reserve(numValidTriangles);
@@ -350,15 +260,16 @@ namespace nanite
 		for (int i = 0; i < srcMesh.Vertices.size(); ++i)
 		{
 			const FVector3& v = srcMesh.Vertices[i];
-			if (std::isnan(v.x)) continue;
+			if (v == INVALID_VERTEX) continue;
 			resultMesh.Vertices.emplace_back(v);
 			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
 		}
 
 		for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
 		{
-			auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triIdx);
-			if (i0 == 0 && i1 == 0 && i2 == 0) continue;
+			auto indices = srcMesh.GetTriangleIndices(triIdx);
+			if (indices == INVALID_TRIANGLE) continue;
+			auto [i0, i1, i2] = indices;
 			resultMesh.Indices.emplace_back(vertIndexMap[i0]);
 			resultMesh.Indices.emplace_back(vertIndexMap[i1]);
 			resultMesh.Indices.emplace_back(vertIndexMap[i2]);

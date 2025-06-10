@@ -139,6 +139,8 @@
     <ClInclude Include="Math\FVector3.hpp" />
     <ClInclude Include="Math\FVector4.hpp" />
     <ClInclude Include="Math\Math.h" />
+    <ClInclude Include="MeshSimplfier\Collapse.h" />
+    <ClInclude Include="MeshSimplfier\CollapseQueue.h" />
     <ClInclude Include="Topology\Edge.h" />
     <ClInclude Include="MeshSimplfier\MeshSimplifier.h" />
     <ClInclude Include="NaniteMesh\NaniteMesh.h" />
@@ -146,6 +148,7 @@
     <ClInclude Include="Topology\Mesh.h" />
     <ClInclude Include="Utils\Geometry.h" />
     <ClInclude Include="Utils\Path.h" />
+    <ClInclude Include="Utils\PRIME_ARRAY.h" />
     <ClInclude Include="Utils\Utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

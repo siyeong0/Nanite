@@ -1,17 +1,19 @@
 #include <iostream>
+#include <fstream>
 
 #include "MeshSimplfier\MeshSimplifier.h"
 #include "Utils\Utils.h"
 
 int main(void)
 {
-	std::cout << "Hello world" << std::endl;
+	std::cout << "Nanite Mesh Builder is Running!" << std::endl;
 
-	std::string modelPath = "../../../Resources/Sphere.obj";
+	//std::string modelPath = "../../../Resources/Sphere.obj";
 	//std::string modelPath = "../../../Resources/SphereH.obj";
 	//std::string modelPath = "../../../Resources/Plane.obj";
 	//std::string modelPath = "../../../Resources/Dragon_8K.obj";
 	//std::string modelPath = "../../../Resources/Dragon_80K.obj";
+	std::string modelPath = "../../../Resources/boguchi.glb";
 
 	std::string modelName = nanite::utils::ExtractFileName(modelPath);
 	std::string outputPath = "../../../Nanite/Assets/Resources/QEM/" + modelName;
@@ -20,10 +22,9 @@ int main(void)
 	mesh.LoadFromFile(modelPath);
 	mesh.SaveToFile(outputPath, modelName + "_" + std::to_string(0), ".obj");
 
-	nanite::MeshSimplifier meshSimplifier;
 	for (int i = 0; i < 5; ++i)
 	{
-		mesh = meshSimplifier.SimplifyMesh(mesh, mesh.NumTriangles() / 2);
+		mesh = nanite::SimplifyMesh(mesh, mesh.NumTriangles() / 2);
 		mesh.SaveToFile(outputPath, modelName + "_" + std::to_string(i + 1), ".obj");
 	}
 

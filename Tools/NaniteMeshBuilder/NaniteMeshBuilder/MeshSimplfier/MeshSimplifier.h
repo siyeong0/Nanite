@@ -3,15 +3,5 @@
 
 namespace nanite
 {
-	class MeshSimplifier
-	{
-	public:
-		MeshSimplifier() = default;
-		~MeshSimplifier() = default;
-
-		Mesh SimplifyMesh(const Mesh& mesh, int targetTriangleCount) const;
-
-	private:
-
-	};
+	 Mesh SimplifyMesh(const Mesh& mesh, int targetTriangleCount);
 }
