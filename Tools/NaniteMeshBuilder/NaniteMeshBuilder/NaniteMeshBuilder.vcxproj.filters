@@ -27,10 +27,10 @@
     <ClCompile Include="NaniteMesh\NaniteMesh.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="MeshSimplfier\MeshSimplifier.cpp">
+    <ClCompile Include="MeshProcessing\Simplifying\MeshSimplifier.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="MeshSimplfier\Quadric.h">
+    <ClCompile Include="MeshProcessing\Simplifying\Quadric.h">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -71,16 +71,16 @@
     <ClInclude Include="NaniteMesh\NaniteMesh.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="MeshSimplfier\MeshSimplifier.h">
+    <ClInclude Include="MeshProcessing\Simplifying\MeshSimplifier.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Topology\Edge.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="MeshSimplfier\Collapse.h">
+    <ClInclude Include="MeshProcessing\Simplifying\Collapse.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="MeshSimplfier\CollapseQueue.h">
+    <ClInclude Include="MeshProcessing\Simplifying\CollapseQueue.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Utils\PRIME_ARRAY.h">

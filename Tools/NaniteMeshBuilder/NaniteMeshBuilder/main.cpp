@@ -1,8 +1,8 @@
 #include <iostream>
 #include <fstream>
 
-#include "MeshSimplfier\MeshSimplifier.h"
-#include "Utils\Utils.h"
+#include "MeshProcessing/Simplifying/MeshSimplifier.h"
+#include "Utils/Utils.h"
 
 int main(void)
 {

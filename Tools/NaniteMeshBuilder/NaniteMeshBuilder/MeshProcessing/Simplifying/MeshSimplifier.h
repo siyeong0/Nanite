@@ -1,5 +1,5 @@
 #pragma once
-#include "../Topology/Mesh.h"
+#include "../../Topology/Mesh.h"
 
 namespace nanite
 {

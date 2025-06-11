@@ -1,5 +1,5 @@
 #pragma once
-#include "../Topology/Edge.h"
+#include "../../Topology/Edge.h"
 #include "Quadric.h"
 
 namespace nanite

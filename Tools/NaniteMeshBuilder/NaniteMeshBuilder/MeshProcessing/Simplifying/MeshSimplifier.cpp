@@ -3,7 +3,7 @@
 #include <iostream>
 #include <map>
 
-#include "../Utils/Utils.h"
+#include "../../Utils/Utils.h"
 #include "CollapseQueue.h"
 
 namespace nanite
