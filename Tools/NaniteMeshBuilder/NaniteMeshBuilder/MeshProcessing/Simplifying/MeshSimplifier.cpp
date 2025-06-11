@@ -20,7 +20,7 @@ namespace nanite
 
 		std::vector<Quadric> quadrics;
 		std::set<Edge> edges;
-		std::map<Edge, int> edgeUsage;
+		std::unordered_map<Edge, int> edgeUsage;
 		std::unordered_map<uint32_t, std::set<uint32_t>> vertToTriMap;
 
 		quadrics.resize(mesh.Vertices.size());
@@ -103,7 +103,7 @@ namespace nanite
 				std::inserter(removedTriangles, removedTriangles.begin()));
 
 			// the edge must be belongs to two triangles
-			if (removedTriangles.size() < 2)
+			if (removedTriangles.size() != 2)
 			{
 				collapseQueue.Erase(bestCandidate);
 				goto CONTINUE;
@@ -161,6 +161,7 @@ namespace nanite
 			}
 
 			// update vertex to triangles map
+			std::cout << "Removing vertex " << removeIdx << " and merging it to " << keepIdx << std::endl;
 			vertToTriMap[keepIdx].insert(vertToTriMap[removeIdx].begin(), vertToTriMap[removeIdx].end());
 			for (const uint32_t removedTriIdx : removedTriangles)
 			{
@@ -265,6 +266,8 @@ namespace nanite
 			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
 		}
 
+		std::set<std::tuple<uint32_t, uint32_t, uint32_t>> dbgTries;
+
 		for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
 		{
 			auto indices = srcMesh.GetTriangleIndices(triIdx);
@@ -275,6 +278,12 @@ namespace nanite
 			resultMesh.Indices.emplace_back(vertIndexMap[i2]);
 			resultMesh.Normals.emplace_back(srcMesh.Normals[triIdx]);
 			resultMesh.Colors.emplace_back(srcMesh.Colors[triIdx]);
+
+			std::vector<uint32_t> triIndices = { vertIndexMap[i0], vertIndexMap[i1], vertIndexMap[i2] };
+			std::sort(triIndices.begin(), triIndices.end());
+			auto tup = std::make_tuple(triIndices[0], triIndices[1], triIndices[2]);
+			assert(dbgTries.find(tup) == dbgTries.end() && "Duplicate triangle found in the result mesh! This is a bug in the simplifier.");
+			dbgTries.insert(tup);
 		}
 
 		return resultMesh;

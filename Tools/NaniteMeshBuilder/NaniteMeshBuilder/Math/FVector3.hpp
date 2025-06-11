@@ -57,6 +57,7 @@ namespace nanite
 		static inline FVector3 Clamp(const FVector3& value, const FVector3& min, const FVector3& max);
 		static inline FVector3 Lerp(const FVector3& a, const FVector3& b, FLOAT t);
 		static inline FVector3 SmoothStep(const FVector3& a, const FVector3& b, FLOAT t);
+		static inline float Distance(const FVector3& a, const FVector3& b);
 	};
 
 	inline FVector3 operator-(const FVector3& vec);
@@ -210,6 +211,11 @@ namespace nanite
 			a.y + (b.y - a.y) * (t2 * (3.f - 2.f * t)),
 			a.z + (b.z - a.z) * (t2 * (3.f - 2.f * t))
 		};
+	}
+
+	inline float FVector3::Distance(const FVector3& a, const FVector3& b)
+	{
+		return (a - b).Length();
 	}
 
 	inline FVector3 operator-(const FVector3& vec)

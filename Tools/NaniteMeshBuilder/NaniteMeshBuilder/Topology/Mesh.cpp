@@ -2,9 +2,10 @@
 
 #include <iostream>
 #include <algorithm>
+#include <set>
+#include <queue>
 #include <fstream>
 #include <filesystem>
-#include <regex>
 
 #include <assimp/Importer.hpp>
 #include <assimp/Exporter.hpp>
@@ -58,6 +59,167 @@ namespace nanite
 		}
 	}
 
+	void Mesh::MergeDuplicateVertices()
+	{
+		std::unordered_map<FVector3, std::set<uint32_t>, utils::FVector3Hasher> spatialGrid;
+		spatialGrid.reserve(utils::NextPrime(2 * NumVertices() + 1));
+		for (int i = 0; i < NumVertices(); ++i)
+		{
+			spatialGrid[Vertices[i]].emplace(i);
+		}
+
+		std::unordered_map<uint32_t, std::set<uint32_t>> neighborVerts;
+		neighborVerts.reserve(utils::NextPrime(2 * NumVertices() + 1));
+		for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
+		{
+			auto [e0, e1, e2] = GetTriangleEdges(triIdx);
+			for (const Edge& e : { e0, e1, e2 })
+			{
+				neighborVerts[e.GetA()].emplace(e.GetB());
+				neighborVerts[e.GetB()].emplace(e.GetA());
+			}
+		}
+
+		std::unordered_map<Edge, std::set<uint32_t>> edgeToTriangleMap;
+		edgeToTriangleMap.reserve(utils::NextPrime(2 * (NumTriangles() * 3) + 1));
+		for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
+		{
+			auto [e0, e1, e2] = GetTriangleEdges(triIdx);
+			edgeToTriangleMap[e0].emplace(triIdx);
+			edgeToTriangleMap[e1].emplace(triIdx);
+			edgeToTriangleMap[e2].emplace(triIdx);
+		}
+
+		std::unordered_map<uint32_t, uint32_t> mergeMap;
+		mergeMap.rehash(utils::NextPrime(2 * Indices.size() + 1));
+
+		for (auto& [vertex, indexSet] : spatialGrid)
+		{
+			std::vector<uint32_t> indices(indexSet.begin(), indexSet.end());
+			if (indices.size() < 2) continue; // No duplicates
+
+			std::priority_queue<
+				std::pair<float, Edge>,
+				std::vector<std::pair<float, Edge>>,
+				std::greater<std::pair<float, Edge>>> mergeQueue;
+
+			for (int i = 0; i < indices.size(); ++i)
+			{
+				for (int j = i + 1; j < indices.size(); ++j)
+				{
+					Edge edge(indices[i], indices[j]);
+					float dist = FVector3::Distance(Vertices[indices[i]], Vertices[indices[j]]);
+					mergeQueue.emplace(dist, edge);
+				}
+			}
+
+			std::vector<uint32_t> mergedIndices;
+			while (mergeQueue.size() > 0)
+			{
+				auto [dist, edge] = mergeQueue.top();
+				mergeQueue.pop();
+
+				uint32_t a = edge.GetA();
+				uint32_t b = edge.GetB();
+
+				if (std::find(mergedIndices.begin(), mergedIndices.end(), a) != mergedIndices.end() ||
+					std::find(mergedIndices.begin(), mergedIndices.end(), b) != mergedIndices.end())
+				{
+					continue; // Skip already merged vertices
+				}
+
+				const std::set<uint32_t>& neighborsA = neighborVerts[a];
+				const std::set<uint32_t>& neighborsB = neighborVerts[b];
+				std::set<uint32_t> mergedNeighbors;
+				std::set_union(
+					neighborsA.begin(), neighborsA.end(),
+					neighborsB.begin(), neighborsB.end(),
+					std::inserter(mergedNeighbors, mergedNeighbors.end()));
+
+				std::unordered_map<uint32_t, std::set<uint32_t>> mergedNeighborToTriangleMap;
+				mergedNeighborToTriangleMap.reserve(utils::NextPrime(2 * mergedNeighbors.size() + 1));
+				for (uint32_t neighbor : neighborsA)
+				{
+					if (neighbor == b) continue;
+					mergedNeighborToTriangleMap[neighbor].insert(
+						edgeToTriangleMap[Edge(a, neighbor)].begin(), edgeToTriangleMap[Edge(a, neighbor)].end());
+				}
+				for (uint32_t neighbor : neighborsB)
+				{
+					if (neighbor == a) continue;
+					mergedNeighborToTriangleMap[neighbor].insert(
+						edgeToTriangleMap[Edge(b, neighbor)].begin(), edgeToTriangleMap[Edge(b, neighbor)].end());
+				}
+
+				for (const auto& [neighbor, triangles] : mergedNeighborToTriangleMap)
+				{
+					if (triangles.size() > 1) // Non-manifold edge exists
+					{
+						goto SKIP_MERGING;
+					}
+				}
+
+				for (const auto& [neighbor, triangles] : mergedNeighborToTriangleMap)
+				{
+					// Merge the edge
+					spatialGrid[vertex].erase(b);
+					mergeMap[b] = a;
+
+					neighborVerts[a].insert(neighborVerts[b].begin(), neighborVerts[b].end());
+					neighborVerts[a].erase(b);
+					neighborVerts[a].erase(a);
+					neighborVerts.erase(b);
+
+					for (uint32_t neighbor : neighborVerts[a])
+					{
+						edgeToTriangleMap[Edge(a, neighbor)].insert(
+							edgeToTriangleMap[Edge(b, neighbor)].begin(), edgeToTriangleMap[Edge(b, neighbor)].end());
+						edgeToTriangleMap.erase(Edge(b, neighbor));
+					}
+
+					mergedIndices.emplace_back(b);
+				}
+			SKIP_MERGING:;
+			}
+		}
+
+		std::vector<FVector3> mergedVertices;
+		std::vector<uint32_t> mergedIndices;
+		mergedVertices.reserve(Vertices.size());
+		mergedVertices.reserve(Indices.size());
+
+		std::unordered_map<uint32_t, uint32_t> indexMap; // Maps old index to new index
+		indexMap.reserve(utils::NextPrime(2 * Vertices.size() + 1));
+		for (auto& [vertex, indexSet] : spatialGrid)
+		{
+			for (uint32_t index : indexSet)
+			{
+				const FVector3& v = Vertices[index];
+				mergedVertices.emplace_back(v);
+				indexMap[index] = static_cast<uint32_t>(mergedVertices.size() - 1);
+			}
+		}
+
+		for (uint32_t oldIndex : Indices)
+		{
+			uint32_t newIndex = -1;
+			if (indexMap.find(oldIndex) != indexMap.end())
+			{
+				newIndex = indexMap[oldIndex];
+			}
+			else
+			{
+				assert(mergeMap.find(oldIndex) != mergeMap.end());
+				newIndex = indexMap[mergeMap[oldIndex]];
+			}
+			mergedIndices.emplace_back(newIndex);
+		}
+
+
+		Vertices = std::move(mergedVertices);
+		Indices = std::move(mergedIndices);
+	}
+
 	std::tuple<uint32_t&, uint32_t&, uint32_t&> Mesh::GetTriangleIndices(int index)
 	{
 		return std::tie(Indices[3 * index + 0], Indices[3 * index + 1], Indices[3 * index + 2]);
@@ -108,35 +270,31 @@ namespace nanite
 		const int numIndices = numFaces * 3;
 		const bool hasNormals = mesh->HasNormals();
 
-		std::vector<FVector3> vertices;
-		vertices.reserve(numVertices);
+		Vertices.clear();
+		Vertices.reserve(numVertices);
 		for (int i = 0; i < numVertices; ++i)
 		{
 			aiVector3D vertex = mesh->mVertices[i];
-			vertices.emplace_back(vertex.x, vertex.y, vertex.z);
+			Vertices.emplace_back(vertex.x, vertex.y, vertex.z);
 		}
 
-		std::vector<uint32_t> indices;
-		indices.reserve(numIndices);
+		Indices.clear();
+		Indices.reserve(numIndices);
 		for (int i = 0; i < numFaces; ++i)
 		{
 			aiFace face = mesh->mFaces[i];
-			indices.emplace_back(face.mIndices[0]);
-			indices.emplace_back(face.mIndices[1]);
-			indices.emplace_back(face.mIndices[2]);
+			Indices.emplace_back(face.mIndices[0]);
+			Indices.emplace_back(face.mIndices[1]);
+			Indices.emplace_back(face.mIndices[2]);
 		}
 
-		std::vector<FVector3> mergedVertices;
-		std::vector<uint32_t> mergedIndices;
-		utils::MergeDuplicatedVertices(vertices, indices, &mergedVertices, &mergedIndices);
+		MergeDuplicateVertices();
 
-		Vertices = std::move(mergedVertices);
-		Indices = std::move(mergedIndices);
 		ComputeNormals();
-		Colors.resize(NumTriangles(), {1.f, 1.f, 1.f});
+		Colors.resize(NumTriangles(), { 1.f, 1.f, 1.f });
 
 		Materials.clear();
-		for (unsigned int i = 0; i < scene->mNumMaterials; ++i) 
+		for (unsigned int i = 0; i < scene->mNumMaterials; ++i)
 		{
 			aiMaterial* mat = deepCopyMaterial(scene->mMaterials[i]);
 			Materials.push_back(mat);
@@ -248,13 +406,13 @@ namespace nanite
 			outScene->mNumMaterials = 1;
 		}
 
-		if (!std::filesystem::exists(directory)) 
+		if (!std::filesystem::exists(directory))
 		{
-			if (std::filesystem::create_directory(directory)) 
+			if (std::filesystem::create_directory(directory))
 			{
 				std::cout << "Folder" << "\'" << directory << "\' " << "created successfully.\n";
 			}
-			else 
+			else
 			{
 				std::cout << "Failed to create folder" << "\'" << directory << "\' " << ".\n";
 				return false;

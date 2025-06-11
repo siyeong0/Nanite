@@ -9,7 +9,14 @@ namespace nanite
 	{
 		struct FVector3Hasher
 		{
-			size_t operator()(const FVector3& v) const;
+			size_t operator()(const FVector3& v) const
+			{
+				const int scale = 1000;
+				size_t hx = std::hash<int>()(static_cast<int>(v.x * scale));
+				size_t hy = std::hash<int>()(static_cast<int>(v.y * scale));
+				size_t hz = std::hash<int>()(static_cast<int>(v.z * scale));
+				return hx ^ (hy << 1) ^ (hz << 2);
+			}
 		};
 
 		inline FVector3 ComputeNormal(const FVector3& v0, const FVector3& v1, const FVector3& v2)
@@ -27,10 +34,14 @@ namespace nanite
 			return 0.5f * (v1 - v0).Cross(v2 - v0).Length();
 		}
 
-		void MergeDuplicatedVertices(
-			const std::vector<FVector3>& vertices, const std::vector<uint32_t>& indices,
-			std::vector<FVector3>* outVertices, std::vector<uint32_t>* outIndices);
-
-		AABB ComputeBoundingBox(const std::vector<FVector3>& vertices);
+		inline AABB ComputeBoundingBox(const std::vector<FVector3>& vertices)
+		{
+			AABB aabb;
+			for (const FVector3& v : vertices)
+			{
+				aabb.Encapsulate(v);
+			}
+			return aabb;
+		}
 	}
 }

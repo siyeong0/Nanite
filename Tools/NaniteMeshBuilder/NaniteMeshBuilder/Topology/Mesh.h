@@ -28,6 +28,7 @@ namespace nanite
 		Mesh& operator=(const Mesh& other);
 
 		void ComputeNormals();
+		void MergeDuplicateVertices();
 
 		std::tuple<uint32_t&, uint32_t&, uint32_t&> GetTriangleIndices(int index);
 		const std::tuple<const uint32_t&, const uint32_t&, const uint32_t&> GetTriangleIndices(int index) const;

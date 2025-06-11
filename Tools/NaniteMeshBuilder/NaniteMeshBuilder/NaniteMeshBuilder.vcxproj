@@ -131,7 +131,6 @@
     <ClCompile Include="MeshProcessing\Simplifying\Quadric.h" />
     <ClCompile Include="NaniteMesh\NaniteMesh.cpp" />
     <ClCompile Include="Topology\Mesh.cpp" />
-    <ClCompile Include="Utils\Geometry.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\AABB.hpp" />
