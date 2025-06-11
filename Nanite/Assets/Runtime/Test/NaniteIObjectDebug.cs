@@ -29,7 +29,7 @@ public class RotateObject : MonoBehaviour
 		{
 			string folder = transform.parent.name;
 			string name = gameObject.name;
-			loadAABBsFromText(folder + "/" + name + "_metadata");
+			loadAABBsFromText("QEM/" + folder + "/" + gameObject.name + "_metadata");
 		}
 	}
 	private void OnDisable()
@@ -105,6 +105,7 @@ public class RotateObject : MonoBehaviour
 
 	void loadAABBsFromText(string resourcePath)
 	{
+		Debug.Log(resourcePath);
 		TextAsset textAsset = Resources.Load<TextAsset>(resourcePath);
 		if (textAsset == null)
 		{

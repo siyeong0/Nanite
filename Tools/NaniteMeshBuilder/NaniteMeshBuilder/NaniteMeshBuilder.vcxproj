@@ -126,6 +126,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MeshProcessing\Clustering\MeshClustering.cpp" />
     <ClCompile Include="MeshProcessing\Simplifying\MeshSimplifier.cpp" />
     <ClCompile Include="MeshProcessing\Simplifying\Quadric.h" />
     <ClCompile Include="NaniteMesh\NaniteMesh.cpp" />
@@ -139,12 +140,12 @@
     <ClInclude Include="Math\FVector3.hpp" />
     <ClInclude Include="Math\FVector4.hpp" />
     <ClInclude Include="Math\Math.h" />
+    <ClInclude Include="MeshProcessing\Clustering\MeshClustering.h" />
     <ClInclude Include="MeshProcessing\Simplifying\Collapse.h" />
     <ClInclude Include="MeshProcessing\Simplifying\CollapseQueue.h" />
     <ClInclude Include="Topology\Edge.h" />
     <ClInclude Include="MeshProcessing\Simplifying\MeshSimplifier.h" />
     <ClInclude Include="NaniteMesh\NaniteMesh.h" />
-    <ClInclude Include="Topology\Cluster.h" />
     <ClInclude Include="Topology\Mesh.h" />
     <ClInclude Include="Utils\Geometry.h" />
     <ClInclude Include="Utils\Path.h" />

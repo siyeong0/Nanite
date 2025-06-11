@@ -23,6 +23,14 @@ namespace nanite
 			{
 				return path.substr(lastSlash + 1, lastDot - lastSlash - 1);
 			}
+			else if (lastSlash != std::string::npos)
+			{
+				return path.substr(lastSlash + 1);
+			}
+			else if (lastDot != std::string::npos)
+			{
+				return path.substr(0, lastDot);
+			}
 			return "";
 		}
 

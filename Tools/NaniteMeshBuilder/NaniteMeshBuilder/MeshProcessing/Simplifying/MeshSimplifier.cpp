@@ -24,7 +24,7 @@ namespace nanite
 		std::unordered_map<uint32_t, std::set<uint32_t>> vertToTriMap;
 
 		quadrics.resize(mesh.Vertices.size());
-		vertToTriMap.reserve(utils::NextPrime(mesh.Vertices.size()));
+		vertToTriMap.reserve(utils::NextPrime(2 * mesh.Vertices.size() + 1));
 		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
 		{
 			auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
