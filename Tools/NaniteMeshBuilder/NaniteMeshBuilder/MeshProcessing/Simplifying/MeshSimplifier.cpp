@@ -54,10 +54,6 @@ namespace nanite
 		std::set<uint32_t> boundaryVertIndices;
 		for (const auto& [edge, count] : edgeUsage)
 		{
-			if (count > 2)
-			{
-				std::cout << "Edge used more than twice: " << edge.GetA() << ", " << edge.GetB() << " (count: " << count << ")" << std::endl;
-			}
 			//assert(count <= 2);
 			if (count == 1)
 			{
@@ -65,7 +61,6 @@ namespace nanite
 				boundaryVertIndices.emplace(edge.GetB());
 			}
 		}
-		std::cout << std::endl;
 
 		// priority queue of collapses
 		// smaller error has higher priority

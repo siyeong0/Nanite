@@ -12,7 +12,7 @@
 
 namespace nanite
 {
-	static inline float castToWeight(float w) { return static_cast<idx_t>(w * 10000.f); };
+	static inline idx_t castToWeight(float w) { return static_cast<idx_t>(w * 10000.f); };
 
 	std::vector<int> PartMesh(const Mesh& mesh, int numParts)
 	{
@@ -118,5 +118,79 @@ namespace nanite
 		}
 
 		return resultParts;
+	}
+
+	std::vector<Cluster> ClusterAndReorderMesh(Mesh* mesh, int numClusters)
+	{
+		if (numClusters < 2)
+		{
+			return {};
+		}
+		std::vector<int> parts = nanite::PartMesh(*mesh, numClusters);
+		return ClusterAndReorderMesh(mesh, parts, numClusters);
+	}
+
+	std::vector<Cluster> ClusterAndReorderMesh(Mesh* mesh, const std::vector<int>& parts, int numClusters)
+	{
+		int numParts = numClusters;
+		if (numParts <= 0)
+		{
+			numParts = *std::max_element(parts.begin(), parts.end()) + 1;
+		}
+
+		if (numParts < 2)
+		{
+			return {};
+		}
+
+		// Reorder mesh
+		std::vector<std::vector<int>> reorederBuffer(numParts);
+		for (int triIdx = 0; triIdx < mesh->NumTriangles(); ++triIdx)
+		{
+			reorederBuffer[parts[triIdx]].emplace_back(triIdx);
+		}
+
+		std::vector<uint32_t> reorderedIndices;
+		std::vector<FVector3> reorderedNormals;
+		std::vector<FVector3> reorderedColors;
+		reorderedIndices.reserve(mesh->Indices.size());
+		reorderedNormals.reserve(mesh->Normals.size());
+		for (const std::vector<int> tris : reorederBuffer)
+		{
+			for (int triIdx : tris)
+			{
+				auto [i0, i1, i2] = mesh->GetTriangleIndices(triIdx);
+				reorderedIndices.emplace_back(i0);
+				reorderedIndices.emplace_back(i1);
+				reorderedIndices.emplace_back(i2);
+				reorderedNormals.emplace_back(mesh->Normals[triIdx]);
+				reorderedColors.emplace_back(mesh->Colors[triIdx]);
+			}
+		}
+		mesh->Indices = std::move(reorderedIndices);
+		mesh->Normals = std::move(reorderedNormals);
+		mesh->Colors = std::move(reorderedColors);
+
+		// Cluster triangles
+		std::vector<Cluster> clusters;
+		clusters.resize(numParts);
+
+		int indexOffset = 0;
+		for (int i = 0; i < numParts; ++i)
+		{
+			Cluster& cluster = clusters[i];
+			cluster.StartIndex = indexOffset;
+			cluster.NumTriangles = static_cast<int>(reorederBuffer[i].size());
+			for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
+			{
+				auto [v0, v1, v2] = mesh->GetTriangleVertices(j);
+				cluster.Bounds.Encapsulate(v0);
+				cluster.Bounds.Encapsulate(v1);
+				cluster.Bounds.Encapsulate(v2);
+			}
+			indexOffset += cluster.NumTriangles;
+		}
+
+		return clusters;
 	}
 }

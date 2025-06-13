@@ -44,7 +44,8 @@ namespace nanite
 		bool SaveToFile(const std::string& path);
 		bool SaveToFile(const std::string& path, const std::string& format);
 		bool SaveToFile(const std::string& directory, const std::string& name, const std::string& format);
-
+		bool SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format);
+		
 	private:
 		static aiMaterial* deepCopyMaterial(const aiMaterial* src);
 		static std::ostream* msOutStream;

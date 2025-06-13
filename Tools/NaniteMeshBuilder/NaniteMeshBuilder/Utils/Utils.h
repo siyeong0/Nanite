@@ -2,6 +2,7 @@
 #include "Geometry.h"
 #include "Path.h"
 #include "PRIME_ARRAY.h"
+#include "../Topology/Cluster.h"
 
 namespace nanite
 {
@@ -29,6 +30,19 @@ namespace nanite
 				rgb = FVector3(c, 0, x);
 
 			return rgb + FVector3{ m, m, m };
+		}
+
+		inline void PaintMeshByCluster(Mesh* mesh, const std::vector<Cluster>& clusters)
+		{
+			for (int i = 0; i < clusters.size(); ++i)
+			{
+				const nanite::Cluster& cluster = clusters[i];
+				nanite::FVector3 color = nanite::utils::HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
+				for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
+				{
+					mesh->Colors[j] = color;
+				}
+			}
 		}
 
 		inline bool IsPrime(size_t num)

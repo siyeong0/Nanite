@@ -346,7 +346,7 @@ namespace nanite
 		{
 			extension = DEFAULT_FORMAT;
 		}
-		else if (extension[0] != '.')
+		if (extension[0] != '.')
 		{
 			extension = "." + format;
 		}
@@ -374,10 +374,6 @@ namespace nanite
 			outColors[i1] = Colors[i];
 			outColors[i2] = Colors[i];
 		}
-		// TODO: Reapir Non-manifold edges
-		outColors[0] = { 1.f, 0.f, 0.f }; // Mark the first triangle as red
-		outColors[1] = { 0.f, 1.f, 0.f }; // Mark the first triangle as red
-		outColors[2] = { 0.f, 0.f, 1.f }; // Mark the first triangle as red
 
 		aiScene* outScene = new aiScene();
 		outScene->mRootNode = new aiNode();
@@ -446,7 +442,119 @@ namespace nanite
 		}
 
 		Assimp::Exporter exporter;
-		aiReturn ret = exporter.Export(outScene, "fbx", directory + "/" + name + ".fbx");
+		aiReturn ret = exporter.Export(outScene, extension.substr(1), directory + "/" + name + extension);
+
+		if (ret == AI_SUCCESS)
+		{
+			std::cout << "Export succeeded!\n";
+		}
+		else
+		{
+			std::cerr << "Export failed: " << exporter.GetErrorString() << "\n";
+			return false;
+		}
+
+		return true;
+	}
+
+	bool Mesh::SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format)
+	{
+		std::string extension = format;
+		if (extension == "")
+		{
+			extension = DEFAULT_FORMAT;
+		}
+		else if (extension[0] != '.')
+		{
+			extension = "." + format;
+		}
+
+		Assimp::Importer importer;
+		if (!importer.IsExtensionSupported(format))
+		{
+			return false;
+		}
+
+		std::vector<FVector3> outVertices;
+		std::vector<uint32_t> outIndices;
+		std::vector<FVector3> outNormals;
+		std::vector<FVector3> outColors;
+
+		for (int i = 0; i < NumTriangles(); ++i)
+		{
+			auto [v0, v1, v2] = GetTriangleVertices(i);
+			FVector3 n = Normals[i];
+			FVector3 c = Colors[i];
+
+			outVertices.push_back(v0);
+			outVertices.push_back(v1);
+			outVertices.push_back(v2);
+			outIndices.push_back(3 * i + 0);
+			outIndices.push_back(3 * i + 1);
+			outIndices.push_back(3 * i + 2);
+			outNormals.push_back(n);
+			outNormals.push_back(n);
+			outNormals.push_back(n);
+			outColors.push_back(c);
+			outColors.push_back(c);
+			outColors.push_back(c);
+		}
+
+		aiScene* outScene = new aiScene();
+		outScene->mRootNode = new aiNode();
+
+		outScene->mMaterials = new aiMaterial * [1];
+		outScene->mMaterials[0] = new aiMaterial();
+		outScene->mNumMaterials = 1;
+
+		aiMesh* aimesh = new aiMesh();
+		aimesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
+		aimesh->mMaterialIndex = 0;
+
+		aimesh->mNumVertices = static_cast<unsigned int>(outVertices.size());
+		aimesh->mVertices = new aiVector3D[aimesh->mNumVertices];
+		aimesh->mNormals = new aiVector3D[aimesh->mNumVertices];
+		aimesh->mColors[0] = new aiColor4D[aimesh->mNumVertices];
+		for (int i = 0; i < static_cast<int>(aimesh->mNumVertices); ++i)
+		{
+			aimesh->mVertices[i] = aiVector3D(outVertices[i].x, outVertices[i].y, outVertices[i].z);
+			aimesh->mNormals[i] = aiVector3D(outNormals[i].x, outNormals[i].y, outNormals[i].z);
+			aimesh->mColors[0][i] = aiColor4D(outColors[i].x, outColors[i].y, outColors[i].z, 1.0f);
+		}
+		aimesh->mNumFaces = static_cast<unsigned int>(NumTriangles());
+		aimesh->mFaces = new aiFace[aimesh->mNumFaces];
+		for (int i = 0; i < static_cast<int>(aimesh->mNumFaces); ++i)
+		{
+			aimesh->mFaces[i].mNumIndices = 3;
+			aimesh->mFaces[i].mIndices = new unsigned int[3];
+			aimesh->mFaces[i].mIndices[0] = outIndices[3 * i + 0];
+			aimesh->mFaces[i].mIndices[1] = outIndices[3 * i + 1];
+			aimesh->mFaces[i].mIndices[2] = outIndices[3 * i + 2];
+		}
+
+		outScene->mNumMeshes = 1;
+		outScene->mMeshes = new aiMesh * [1];
+		outScene->mMeshes[0] = aimesh;
+
+		outScene->mRootNode->mNumMeshes = 1;
+		outScene->mRootNode->mMeshes = new unsigned int[1];
+		outScene->mRootNode->mMeshes[0] = 0;
+
+		if (!std::filesystem::exists(directory))
+		{
+			if (std::filesystem::create_directory(directory))
+			{
+				std::cout << "Folder" << "\'" << directory << "\' " << "created successfully.\n";
+			}
+			else
+			{
+				std::cout << "Failed to create folder" << "\'" << directory << "\' " << ".\n";
+				return false;
+			}
+		}
+
+		Assimp::Exporter exporter;
+		aiReturn ret = exporter.Export(outScene, extension.substr(1), directory + "/" + name + extension);
 
 		if (ret == AI_SUCCESS)
 		{

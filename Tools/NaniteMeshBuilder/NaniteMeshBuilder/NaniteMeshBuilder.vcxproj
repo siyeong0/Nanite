@@ -142,6 +142,7 @@
     <ClInclude Include="MeshProcessing\Clustering\MeshClustering.h" />
     <ClInclude Include="MeshProcessing\Simplifying\Collapse.h" />
     <ClInclude Include="MeshProcessing\Simplifying\CollapseQueue.h" />
+    <ClInclude Include="Topology\Cluster.h" />
     <ClInclude Include="Topology\Edge.h" />
     <ClInclude Include="MeshProcessing\Simplifying\MeshSimplifier.h" />
     <ClInclude Include="NaniteMesh\NaniteMesh.h" />
