@@ -17,7 +17,7 @@ namespace nanite
 
 		inline bool operator<(const Collapse& other) const
 		{
-			return std::tie(Phase, Error, Length, Edge) < std::tie(other.Phase, other.Error, other.Length, other.Edge);
+			return std::tie(Error, Phase, Length, Edge) < std::tie(other.Error, other.Phase, other.Length, other.Edge);
 		}
 
 		static inline FVector3 FindOptimalPosition(const nanite::Quadric& q, const FVector3& vertexA, const FVector3& vertexB, bool bFixA = false, bool bFixB = false)

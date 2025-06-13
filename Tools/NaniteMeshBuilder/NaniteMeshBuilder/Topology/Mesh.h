@@ -28,7 +28,7 @@ namespace nanite
 		Mesh& operator=(const Mesh& other);
 
 		void ComputeNormals();
-		void MergeDuplicateVertices();
+		void MergeDuplicatedVertices();
 
 		std::tuple<uint32_t&, uint32_t&, uint32_t&> GetTriangleIndices(int index);
 		const std::tuple<const uint32_t&, const uint32_t&, const uint32_t&> GetTriangleIndices(int index) const;
@@ -47,5 +47,6 @@ namespace nanite
 
 	private:
 		static aiMaterial* deepCopyMaterial(const aiMaterial* src);
+		static std::ostream* msOutStream;
 	};
 }

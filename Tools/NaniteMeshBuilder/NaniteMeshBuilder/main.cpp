@@ -12,8 +12,8 @@ int main(void)
 
 	//std::string modelPath = "../../../Resources/Sphere.obj";
 	//std::string modelPath = "../../../Resources/SphereH.obj";
-	//std::string modelPath = "../../../Resources/Plane.obj";
-	std::string modelPath = "../../../Resources/Dragon_8K.obj";
+	std::string modelPath = "../../../Resources/Plane.obj";
+	//std::string modelPath = "../../../Resources/Dragon_8K.obj";
 	//std::string modelPath = "../../../Resources/Dragon_80K.obj";
 	//std::string modelPath = "../../../Resources/boguchi.glb";
 

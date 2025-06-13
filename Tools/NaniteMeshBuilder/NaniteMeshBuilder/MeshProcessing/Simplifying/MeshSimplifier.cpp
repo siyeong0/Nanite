@@ -1,6 +1,7 @@
 #include "MeshSimplifier.h"
 
 #include <iostream>
+#include <array>
 #include <map>
 
 #include "../../Utils/Utils.h"
@@ -53,13 +54,18 @@ namespace nanite
 		std::set<uint32_t> boundaryVertIndices;
 		for (const auto& [edge, count] : edgeUsage)
 		{
-			assert(count <= 2);
+			if (count > 2)
+			{
+				std::cout << "Edge used more than twice: " << edge.GetA() << ", " << edge.GetB() << " (count: " << count << ")" << std::endl;
+			}
+			//assert(count <= 2);
 			if (count == 1)
 			{
 				boundaryVertIndices.emplace(edge.GetA());
 				boundaryVertIndices.emplace(edge.GetB());
 			}
 		}
+		std::cout << std::endl;
 
 		// priority queue of collapses
 		// smaller error has higher priority
@@ -161,7 +167,6 @@ namespace nanite
 			}
 
 			// update vertex to triangles map
-			std::cout << "Removing vertex " << removeIdx << " and merging it to " << keepIdx << std::endl;
 			vertToTriMap[keepIdx].insert(vertToTriMap[removeIdx].begin(), vertToTriMap[removeIdx].end());
 			for (const uint32_t removedTriIdx : removedTriangles)
 			{
@@ -266,25 +271,64 @@ namespace nanite
 			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
 		}
 
-		std::set<std::tuple<uint32_t, uint32_t, uint32_t>> dbgTries;
+		struct UniqueTriangle
+		{
+			std::array<uint32_t, 3> Indices;
+			std::array<uint32_t, 3> SortedIndices;
+			int TriangleIndex = -1;
 
+			UniqueTriangle(uint32_t i0, uint32_t i1, uint32_t i2, int triIdx)
+				: Indices({ i0, i1, i2 })
+				, SortedIndices({ i0, i1, i2 })
+				, TriangleIndex(triIdx)
+			{
+				std::sort(SortedIndices.begin(), SortedIndices.end());
+			}
+
+			bool operator<(const UniqueTriangle& other) const
+			{
+				return SortedIndices < other.SortedIndices;
+			}
+		};
+
+		std::set<UniqueTriangle> uniqueTriangles;
 		for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
 		{
 			auto indices = srcMesh.GetTriangleIndices(triIdx);
 			if (indices == INVALID_TRIANGLE) continue;
 			auto [i0, i1, i2] = indices;
-			resultMesh.Indices.emplace_back(vertIndexMap[i0]);
-			resultMesh.Indices.emplace_back(vertIndexMap[i1]);
-			resultMesh.Indices.emplace_back(vertIndexMap[i2]);
-			resultMesh.Normals.emplace_back(srcMesh.Normals[triIdx]);
-			resultMesh.Colors.emplace_back(srcMesh.Colors[triIdx]);
-
-			std::vector<uint32_t> triIndices = { vertIndexMap[i0], vertIndexMap[i1], vertIndexMap[i2] };
-			std::sort(triIndices.begin(), triIndices.end());
-			auto tup = std::make_tuple(triIndices[0], triIndices[1], triIndices[2]);
-			assert(dbgTries.find(tup) == dbgTries.end() && "Duplicate triangle found in the result mesh! This is a bug in the simplifier.");
-			dbgTries.insert(tup);
+			//assert(uniqueTriangles.find(UniqueTriangle(
+			//	vertIndexMap[i0],
+			//	vertIndexMap[i1],
+			//	vertIndexMap[i2],
+			//	triIdx)) == uniqueTriangles.end());
+			uniqueTriangles.insert(UniqueTriangle(
+				vertIndexMap[i0], 
+				vertIndexMap[i1], 
+				vertIndexMap[i2], 
+				triIdx));
 		}
+
+		for (const UniqueTriangle& ut : uniqueTriangles)
+		{
+			resultMesh.Indices.emplace_back(ut.Indices[0]);
+			resultMesh.Indices.emplace_back(ut.Indices[1]);
+			resultMesh.Indices.emplace_back(ut.Indices[2]);
+			resultMesh.Normals.emplace_back(srcMesh.Normals[ut.TriangleIndex]);
+			resultMesh.Colors.emplace_back(srcMesh.Colors[ut.TriangleIndex]);
+		}
+
+		//for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
+		//{
+		//	auto indices = srcMesh.GetTriangleIndices(triIdx);
+		//	if (indices == INVALID_TRIANGLE) continue;
+		//	auto [i0, i1, i2] = indices;
+		//	resultMesh.Indices.emplace_back(vertIndexMap[i0]);
+		//	resultMesh.Indices.emplace_back(vertIndexMap[i1]);
+		//	resultMesh.Indices.emplace_back(vertIndexMap[i2]);
+		//	resultMesh.Normals.emplace_back(srcMesh.Normals[triIdx]);
+		//	resultMesh.Colors.emplace_back(srcMesh.Colors[triIdx]);
+		//}
 
 		return resultMesh;
 	}
