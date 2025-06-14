@@ -226,12 +226,11 @@ namespace nanite
 				edgeUsage[e1]++;
 				edgeUsage[e2]++;
 			}
-			std::cout << "Edges used once : \n";
 			for (const auto& [edge, count] : edgeUsage)
 			{
 				if (count == 1)
 				{
-					std::cout << "(" << edge.GetA() << "," << edge.GetB() << ")\n";
+					std::cout << "Edge used once:" << "(" << edge.GetA() << "," << edge.GetB() << ")\n";
 				}
 			}
 			std::cout << std::endl;

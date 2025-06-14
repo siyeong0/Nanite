@@ -1,10 +1,6 @@
 #pragma once
 #include <string>
-#include <vector>
 
-#include <assimp/scene.h>
-
-#include "../Math/Math.h"
 #include "../Topology/Mesh.h"
 
 namespace nanite
@@ -21,14 +17,16 @@ namespace nanite
 		NaniteMesh& operator=(NaniteMesh&& other) noexcept = default;
 
 		bool Build(const Mesh& originMesh, int leafTriThreshold);
-		void PaintColorByCluster();
-
-
-	private:
-		static void mergeDuplicatedVertices(Mesh* mesh);
-		static void mergeDuplicatedTriangles(Mesh* mesh);
 
 	private:
 		std::string mName;
+
+		struct Node
+		{
+			int LOD = -1;
+
+			Node* Parent = nullptr;
+			std::vector<Node*> Childs;
+		};
 	};
 }

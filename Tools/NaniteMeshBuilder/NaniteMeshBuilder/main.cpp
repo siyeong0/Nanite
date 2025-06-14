@@ -25,15 +25,13 @@ int main(void)
 		std::string modelName = nanite::utils::ExtractFileName(modelPath);
 		std::string outputPath = "../../../Nanite/Assets/Resources/QEM/" + modelName;
 
-		std::cout << "Processing model: " << modelName << std::endl;
+		std::cout << "\n\nProcessing model: " << modelName << std::endl;
 
 		nanite::Mesh mesh;
 		mesh.LoadFromFile(modelPath);
 
 		const int TARGET_LEAF_POLGON_COUNT = 128;
-		int numParts = std::min(32, mesh.NumTriangles() / TARGET_LEAF_POLGON_COUNT);
-		std::cout << "Number of parts: " << numParts << std::endl;
-		std::vector<nanite::Cluster> clusters = nanite::ClusterAndReorderMesh(&mesh, numParts);
+		std::vector<nanite::Cluster> clusters = nanite::ClusterMesh(mesh, TARGET_LEAF_POLGON_COUNT);
 		nanite::utils::PaintMeshByCluster(&mesh, clusters);
 
 		mesh.SaveToFileDbg(outputPath, modelName + "_" + std::to_string(0), ".fbx");
@@ -45,9 +43,7 @@ int main(void)
 			mesh = nanite::SimplifyMesh(mesh, mesh.NumTriangles() / 2);
 
 			// Clustering
-			int numParts = std::min(32, mesh.NumTriangles() / TARGET_LEAF_POLGON_COUNT);
-			std::cout << "Number of parts: " << numParts << std::endl;
-			std::vector<nanite::Cluster> clusters = nanite::ClusterAndReorderMesh(&mesh, numParts);
+			std::vector<nanite::Cluster> clusters = nanite::ClusterMesh(mesh, TARGET_LEAF_POLGON_COUNT);
 			nanite::utils::PaintMeshByCluster(&mesh, clusters);
 
 			// Save mesh

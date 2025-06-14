@@ -38,9 +38,9 @@ namespace nanite
 			{
 				const nanite::Cluster& cluster = clusters[i];
 				nanite::FVector3 color = nanite::utils::HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
-				for (int j = cluster.StartIndex; j < cluster.StartIndex + cluster.NumTriangles; ++j)
+				for (int triIdx : cluster.Triangles)
 				{
-					mesh->Colors[j] = color;
+					mesh->Colors[triIdx] = color;
 				}
 			}
 		}

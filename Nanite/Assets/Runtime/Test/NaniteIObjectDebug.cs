@@ -22,7 +22,7 @@ public class RotateObject : MonoBehaviour
 	{
 		if (rotate && Application.isPlaying)
 		{
-			transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime, Space.World);
+			transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime, Space.Self);
 		}
 
 		if (AABBs == null)

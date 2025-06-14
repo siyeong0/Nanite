@@ -1,11 +1,13 @@
 #pragma once
 #include "../Math/AABB.hpp"
+#include "Mesh.h"
+
 namespace nanite
 {
 	struct Cluster
 	{
-		int StartIndex = 0; // start index in the triangle list
-		int NumTriangles = 0; // number of triangles in this cluster
+		const Mesh* Mesh = nullptr;
+		std::vector<int> Triangles;
 		AABB Bounds;
 	};
 }

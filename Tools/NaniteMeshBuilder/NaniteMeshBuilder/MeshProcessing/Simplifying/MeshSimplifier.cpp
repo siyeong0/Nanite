@@ -292,11 +292,6 @@ namespace nanite
 			auto indices = srcMesh.GetTriangleIndices(triIdx);
 			if (indices == INVALID_TRIANGLE) continue;
 			auto [i0, i1, i2] = indices;
-			//assert(uniqueTriangles.find(UniqueTriangle(
-			//	vertIndexMap[i0],
-			//	vertIndexMap[i1],
-			//	vertIndexMap[i2],
-			//	triIdx)) == uniqueTriangles.end());
 			uniqueTriangles.insert(UniqueTriangle(
 				vertIndexMap[i0], 
 				vertIndexMap[i1], 
@@ -312,18 +307,6 @@ namespace nanite
 			resultMesh.Normals.emplace_back(srcMesh.Normals[ut.TriangleIndex]);
 			resultMesh.Colors.emplace_back(srcMesh.Colors[ut.TriangleIndex]);
 		}
-
-		//for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
-		//{
-		//	auto indices = srcMesh.GetTriangleIndices(triIdx);
-		//	if (indices == INVALID_TRIANGLE) continue;
-		//	auto [i0, i1, i2] = indices;
-		//	resultMesh.Indices.emplace_back(vertIndexMap[i0]);
-		//	resultMesh.Indices.emplace_back(vertIndexMap[i1]);
-		//	resultMesh.Indices.emplace_back(vertIndexMap[i2]);
-		//	resultMesh.Normals.emplace_back(srcMesh.Normals[triIdx]);
-		//	resultMesh.Colors.emplace_back(srcMesh.Colors[triIdx]);
-		//}
 
 		return resultMesh;
 	}

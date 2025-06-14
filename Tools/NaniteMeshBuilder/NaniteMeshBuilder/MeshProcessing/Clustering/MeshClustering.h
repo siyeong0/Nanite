@@ -5,7 +5,5 @@
 
 namespace nanite
 {
-	std::vector<int> PartMesh(const Mesh& mesh, int numParts);
-	std::vector<Cluster> ClusterAndReorderMesh(Mesh* mesh, int numClusters);
-	std::vector<Cluster> ClusterAndReorderMesh (Mesh* mesh, const std::vector<int>& parts = {}, int numClusters = -1);
+	std::vector<Cluster> ClusterMesh(const Mesh& mesh, int maxNumTrianglesInCluster);
 }
