@@ -36,7 +36,6 @@ int main(void)
 
 		mesh.SaveToFileDbg(outputPath, modelName + "_" + std::to_string(0), ".fbx");
 
-		// simplifying
 		for (int i = 0; i < 5; ++i)
 		{
 			// Simplifying

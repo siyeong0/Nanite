@@ -12,11 +12,11 @@ namespace nanite
 
 	Mesh SimplifyMesh(const Mesh& mesh, int targetTriangleCount)
 	{
-		// constants
+		// Constants
 		const FVector3 INVALID_VERTEX = FVector3{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
 		const std::tuple<uint32_t, uint32_t, uint32_t> INVALID_TRIANGLE = std::make_tuple(std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max());
 
-		// prepare buffers
+		// Prepare buffers
 		Mesh srcMesh(mesh);
 
 		std::vector<Quadric> quadrics;
@@ -31,26 +31,26 @@ namespace nanite
 			auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
 			auto [v0, v1, v2] = mesh.GetTriangleVertices(triIdx);
 			auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
-			// compute quadrics
+			// Compute quadrics
 			const FVector3& normal = mesh.Normals[triIdx];
 			float d = -normal.Dot(v0);
 			quadrics[i0].AddPlane(normal, d);
 			quadrics[i1].AddPlane(normal, d);
 			quadrics[i2].AddPlane(normal, d);
-			// collect edges
+			// Collect edges
 			edges.emplace(e0);
 			edges.emplace(e1);
 			edges.emplace(e2);
 			edgeUsage[e0]++;
 			edgeUsage[e1]++;
 			edgeUsage[e2]++;
-			// collect triangles
+			// Collect triangles
 			vertToTriMap[i0].emplace(triIdx);
 			vertToTriMap[i1].emplace(triIdx);
 			vertToTriMap[i2].emplace(triIdx);
 		}
 
-		// collect boundary vertices
+		// Collect boundary vertices
 		std::set<uint32_t> boundaryVertIndices;
 		for (const auto& [edge, count] : edgeUsage)
 		{
@@ -62,8 +62,8 @@ namespace nanite
 			}
 		}
 
-		// priority queue of collapses
-		// smaller error has higher priority
+		// Priority queue of collapses
+		// Smaller error has higher priority
 		CollapseQueue collapseQueue(srcMesh, quadrics, boundaryVertIndices);
 		collapseQueue.Reserve(edges.size());
 		for (const Edge& edge : edges)
@@ -71,7 +71,7 @@ namespace nanite
 			collapseQueue.Insert(edge);
 		}
 
-		// simplificataion loop
+		// Simplificataion loop
 		int numValidVertices = srcMesh.NumVertices();
 		int numValidTriangles = srcMesh.NumTriangles();
 		while (targetTriangleCount < numValidTriangles)
@@ -79,11 +79,11 @@ namespace nanite
 		CONTINUE:
 			if (collapseQueue.Size() == 0)
 			{
-				// there's no edge to collapse
+				// There's no edge to collapse
 				break;
 			}
 
-			// pick best one from priority queue
+			// Pick best one from priority queue
 			const Collapse& bestCandidate = collapseQueue.PickBest();
 			const FVector3 optimalPosition = bestCandidate.Position;
 			uint32_t keepIdx = bestCandidate.Edge.GetA();
@@ -96,21 +96,21 @@ namespace nanite
 
 			const std::set<uint32_t> trisWithKeep = vertToTriMap[keepIdx];
 			const std::set<uint32_t> trisWithRemove = vertToTriMap[removeIdx];
-			// triangles that have both keepIdx and removeIdx (the intersection) need to be removed.
+			// Triangles that have both keepIdx and removeIdx (the intersection) need to be removed.
 			std::set<uint32_t> removedTriangles;
 			std::set_intersection(
 				trisWithKeep.begin(), trisWithKeep.end(),
 				trisWithRemove.begin(), trisWithRemove.end(),
 				std::inserter(removedTriangles, removedTriangles.begin()));
 
-			// the edge must be belongs to two triangles
+			// The edge must be belongs to two triangles
 			if (removedTriangles.size() != 2)
 			{
 				collapseQueue.Erase(bestCandidate);
 				goto CONTINUE;
 			}
 
-			// triangles that have in either keepIdx or removeIdx (the union) need to be updated,
+			// Triangles that have in either keepIdx or removeIdx (the union) need to be updated,
 			// except for those that are being deleted.
 			std::set<uint32_t> updatedTrianglesTmp;
 			std::set_union(
@@ -123,11 +123,11 @@ namespace nanite
 				removedTriangles.begin(), removedTriangles.end(),
 				std::inserter(updatedTriangles, updatedTriangles.begin()));
 
-			// check for flipped triangles using normal vectors.
+			// Check for flipped triangles using normal vectors.
 			for (const uint32_t updatedTriIdx : updatedTriangles)
 			{
 				const FVector3& oldNormal = srcMesh.Normals[updatedTriIdx];
-				// compute the updated normal
+				// Compute the updated normal
 				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
 				const FVector3& v0 = (i0 == removeIdx) || (i0 == keepIdx) ? optimalPosition : srcMesh.Vertices[i0];
 				const FVector3& v1 = (i1 == removeIdx) || (i1 == keepIdx) ? optimalPosition : srcMesh.Vertices[i1];
@@ -135,20 +135,19 @@ namespace nanite
 				const FVector3 newNormal = utils::ComputeNormal(v0, v1, v2);
 				if (oldNormal.Dot(newNormal) < 1e-4f)
 				{
-					// if flipped triangle exists,
+					// If flipped triangle exists,
 					// exclude current best candidate
 					collapseQueue.Erase(bestCandidate);
 					goto CONTINUE;
 				}
 			}
 
-			// update count values
+			// Update count values
 			numValidVertices -= 1;
 			numValidTriangles -= static_cast<int>(removedTriangles.size());
 			assert(removedTriangles.size() == 2);
 
-			// update collapse queue
-			// erase edges with removeIdx
+			// Update collapse queue and erase edges with removeIdx
 			for (const uint32_t triWithRemoveIdx : trisWithRemove)
 			{
 				auto [e0, e1, e2] = srcMesh.GetTriangleEdges(triWithRemoveIdx);
@@ -161,7 +160,7 @@ namespace nanite
 				}
 			}
 
-			// update vertex to triangles map
+			// Update vertex to triangles map
 			vertToTriMap[keepIdx].insert(vertToTriMap[removeIdx].begin(), vertToTriMap[removeIdx].end());
 			for (const uint32_t removedTriIdx : removedTriangles)
 			{
@@ -172,10 +171,10 @@ namespace nanite
 			}
 			vertToTriMap.erase(removeIdx);
 
-			// before updating vertices and triangles, update quadrics; remove old planes
+			// Before updating vertices and triangles, update quadrics; Remove old planes
 			for (const uint32_t updatedTriIdx : updatedTrianglesTmp)
 			{
-				// update quadrics
+				// Update quadrics
 				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
 				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
 				const FVector3& n = srcMesh.Normals[updatedTriIdx];
@@ -185,10 +184,10 @@ namespace nanite
 				quadrics[i2].RemovePlane(n, d);
 			}
 
-			// update vertices
+			// Update vertices
 			srcMesh.Vertices[keepIdx] = optimalPosition;
 			srcMesh.Vertices[removeIdx] = INVALID_VERTEX;
-			// update indices; replace removeIdx to keepIdx
+			// Update indices; replace removeIdx to keepIdx
 			for (const uint32_t triWithRemoveIdx : trisWithRemove)
 			{
 				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triWithRemoveIdx);
@@ -196,19 +195,19 @@ namespace nanite
 				i1 = (i1 == removeIdx) ? keepIdx : i1;
 				i2 = (i2 == removeIdx) ? keepIdx : i2;
 			}
-			// mark removed triangles
+			// Mark removed triangles
 			for (const uint32_t removedTriIdx : removedTriangles)
 			{
 				srcMesh.GetTriangleIndices(removedTriIdx) = INVALID_TRIANGLE;
 			}
-			// update normals
+			// Update normals
 			for (const uint32_t updatedTriIdx : updatedTriangles)
 			{
 				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
 				srcMesh.Normals[updatedTriIdx] = utils::ComputeNormal(v0, v1, v2);
 			}
 
-			// update quadrics; add new planes
+			// Update quadrics; add new planes
 			// after updating vertices and triangles
 			for (const uint32_t updatedTriIdx : updatedTriangles)
 			{
@@ -222,7 +221,7 @@ namespace nanite
 				quadrics[i2].AddPlane(n, d);
 			}
 
-			// collect affected edges
+			// Collect affected edges
 			std::unordered_set<Edge> affectedEdges;
 			for (const uint32_t updatedTriIdx : updatedTriangles)
 			{
@@ -243,7 +242,7 @@ namespace nanite
 				}
 			}
 
-			// update collapse candidates queue
+			// Update collapse candidates queue
 			for (const Edge& affEdge : affectedEdges)
 			{
 				int phase = collapseQueue.Erase(affEdge);
@@ -251,6 +250,7 @@ namespace nanite
 			}
 		}
 
+		// Remove invalid vertices and triangles
 		Mesh resultMesh;
 		resultMesh.Vertices.reserve(numValidVertices);
 		resultMesh.Indices.reserve(numValidTriangles * 3);
@@ -266,6 +266,7 @@ namespace nanite
 			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
 		}
 
+		// Remove dubplicate triangles
 		struct UniqueTriangle
 		{
 			std::array<uint32_t, 3> Indices;
