@@ -3,7 +3,7 @@
 #include <set>
 #include <unordered_map>
 
-#include "../../Topology/Mesh.h"
+#include "../Topology/Mesh.h"
 #include "Collapse.h"
 
 namespace nanite

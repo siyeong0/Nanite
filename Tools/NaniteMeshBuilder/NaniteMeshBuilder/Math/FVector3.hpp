@@ -204,12 +204,11 @@ namespace nanite
 	inline FVector3 FVector3::SmoothStep(const FVector3& a, const FVector3& b, FLOAT t)
 	{
 		t = std::fmax(0.f, std::fmin(t, 1.f)); // Clamp t between 0 and 1
-		FLOAT t2 = t * t;
-		FLOAT t3 = t2 * t;
+		FLOAT s = t * t * (3.f - 2.f * t);     // SmoothStep interpolation
 		return FVector3{
-			a.x + (b.x - a.x) * (t2 * (3.f - 2.f * t)),
-			a.y + (b.y - a.y) * (t2 * (3.f - 2.f * t)),
-			a.z + (b.z - a.z) * (t2 * (3.f - 2.f * t))
+			a.x + (b.x - a.x) * s,
+			a.y + (b.y - a.y) * s,
+			a.z + (b.z - a.z) * s
 		};
 	}
 

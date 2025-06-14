@@ -4,8 +4,8 @@
 #include <cassert>
 
 #include "../Utils/Utils.h"
-#include "../MeshProcessing/Clustering/MeshClustering.h"
-#include "../MeshProcessing/Simplifying/MeshSimplifier.h"
+#include "../MeshProcessing/MeshClustering.h"
+#include "../MeshProcessing/MeshSimplifier.h"
 
 namespace nanite
 {

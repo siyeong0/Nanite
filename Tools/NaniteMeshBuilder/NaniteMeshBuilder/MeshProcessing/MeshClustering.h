@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../Topology/Mesh.h"
-#include "../../Topology/Cluster.h"
+#include "../Topology/Mesh.h"
+#include "../Topology/Cluster.h"
 
 namespace nanite
 {

@@ -1,5 +1,5 @@
 #pragma once
-#include "../../Math/Math.h"
+#include "../Math/Math.h"
 
 namespace nanite
 {
@@ -40,7 +40,6 @@ namespace nanite
 
 	inline float Quadric::Evaluate(const FVector4& v) const
 	{
-		float result = 0.0f;
 		FVector4 qv;
 		for (int i = 0; i < 4; ++i)
 		{

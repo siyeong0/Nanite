@@ -9,7 +9,7 @@
 
 #include <metis.h>
 
-#include "../../Utils/Utils.h"
+#include "../Utils/Utils.h"
 
 namespace nanite
 {
@@ -127,7 +127,7 @@ namespace nanite
 
 	static std::vector<Cluster> partCluster(const Cluster& cluster, int numParts, float imbalanceRatio)
 	{
-		const int numTriangles = cluster.Triangles.size();
+		const int numTriangles = static_cast<int>(cluster.Triangles.size());
 
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangelesMap;
 		edgeToTriangelesMap.reserve(utils::NextPrime(2 * (numTriangles * 3) + 1));

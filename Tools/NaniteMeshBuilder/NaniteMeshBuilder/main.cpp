@@ -1,8 +1,8 @@
 #include <iostream>
 #include <fstream>
 
-#include "MeshProcessing/Simplifying/MeshSimplifier.h"
-#include "MeshProcessing/Clustering/MeshClustering.h"
+#include "MeshProcessing/MeshSimplifier.h"
+#include "MeshProcessing/MeshClustering.h"
 #include "Utils/Utils.h"
 #include "Math/Math.h"
 
@@ -13,10 +13,10 @@ int main(void)
 	std::string modelPaths[] = 
 	{
 		//"../../../Resources/Sphere.obj",
-		"../../../Resources/SphereH.obj",
+		//"../../../Resources/SphereH.obj",
 		//"../../../Resources/Plane.obj",
-		"../../../Resources/Dragon_8K.obj",
-		"../../../Resources/Dragon_80K.obj",
+		//"../../../Resources/Dragon_8K.obj",
+		//"../../../Resources/Dragon_80K.obj",
 		"../../../Resources/boguchi.glb"
 	};
 
@@ -42,7 +42,7 @@ int main(void)
 			mesh = nanite::SimplifyMesh(mesh, mesh.NumTriangles() / 2);
 
 			// Clustering
-			std::vector<nanite::Cluster> clusters = nanite::ClusterMesh(mesh, TARGET_LEAF_POLGON_COUNT);
+			clusters = nanite::ClusterMesh(mesh, TARGET_LEAF_POLGON_COUNT);
 			nanite::utils::PaintMeshByCluster(&mesh, clusters);
 
 			// Save mesh
@@ -51,11 +51,11 @@ int main(void)
 			// Save metadata; bounding box info
 			std::ofstream file(outputPath + "/" + modelName + "_clu" + "_metadata.txt");
 			if (!file.is_open()) return false;
-			for (int i = 0; i < clusters.size(); ++i)
+			for (int j = 0; j < clusters.size(); ++j)
 			{
-				const nanite::Cluster& cluster = clusters[i];
+				const nanite::Cluster& cluster = clusters[j];
 				const nanite::AABB& aabb = cluster.Bounds;
-				nanite::FVector3 color = nanite::utils::HSVtoRGB(std::fmod(i / 8.f, 1.f), 1.f, 1.f);
+				nanite::FVector3 color = nanite::utils::HSVtoRGB(std::fmod(j / 8.f, 1.f), 1.f, 1.f);
 				file << aabb.Min.x << " " << aabb.Min.y << " " << aabb.Min.z << " "
 					<< aabb.Max.x << " " << aabb.Max.y << " " << aabb.Max.z << " "
 					<< color.x << " " << color.y << " " << color.z << "\n";

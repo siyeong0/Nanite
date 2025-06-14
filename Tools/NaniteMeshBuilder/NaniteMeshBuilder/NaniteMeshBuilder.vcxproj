@@ -111,7 +111,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -126,9 +126,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MeshProcessing\Clustering\MeshClustering.cpp" />
-    <ClCompile Include="MeshProcessing\Simplifying\MeshSimplifier.cpp" />
-    <ClCompile Include="MeshProcessing\Simplifying\Quadric.h" />
+    <ClCompile Include="MeshProcessing\MeshClustering.cpp" />
+    <ClCompile Include="MeshProcessing\MeshSimplifier.cpp" />
+    <ClCompile Include="MeshProcessing\Quadric.h" />
     <ClCompile Include="NaniteMesh\NaniteMesh.cpp" />
     <ClCompile Include="Topology\Mesh.cpp" />
   </ItemGroup>
@@ -139,12 +139,12 @@
     <ClInclude Include="Math\FVector3.hpp" />
     <ClInclude Include="Math\FVector4.hpp" />
     <ClInclude Include="Math\Math.h" />
-    <ClInclude Include="MeshProcessing\Clustering\MeshClustering.h" />
-    <ClInclude Include="MeshProcessing\Simplifying\Collapse.h" />
-    <ClInclude Include="MeshProcessing\Simplifying\CollapseQueue.h" />
+    <ClInclude Include="MeshProcessing\MeshClustering.h" />
+    <ClInclude Include="MeshProcessing\Collapse.h" />
+    <ClInclude Include="MeshProcessing\CollapseQueue.h" />
     <ClInclude Include="Topology\Cluster.h" />
     <ClInclude Include="Topology\Edge.h" />
-    <ClInclude Include="MeshProcessing\Simplifying\MeshSimplifier.h" />
+    <ClInclude Include="MeshProcessing\MeshSimplifier.h" />
     <ClInclude Include="NaniteMesh\NaniteMesh.h" />
     <ClInclude Include="Topology\Mesh.h" />
     <ClInclude Include="Utils\Geometry.h" />
