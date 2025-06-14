@@ -89,5 +89,14 @@
     <ClInclude Include="Topology\Cluster.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="NaniteMesh\NaniteNode.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\UUIDGenerator.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\UUID.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

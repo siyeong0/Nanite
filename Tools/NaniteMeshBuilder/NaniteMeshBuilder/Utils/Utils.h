@@ -2,6 +2,9 @@
 #include "Geometry.h"
 #include "Path.h"
 #include "PRIME_ARRAY.h"
+#include "UUID.h"
+#include "UUIDGenerator.h"
+
 #include "../Topology/Cluster.h"
 
 namespace nanite

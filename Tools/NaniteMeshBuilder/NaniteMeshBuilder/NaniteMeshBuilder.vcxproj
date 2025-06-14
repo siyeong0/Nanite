@@ -142,6 +142,7 @@
     <ClInclude Include="MeshProcessing\MeshClustering.h" />
     <ClInclude Include="MeshProcessing\Collapse.h" />
     <ClInclude Include="MeshProcessing\CollapseQueue.h" />
+    <ClInclude Include="NaniteMesh\NaniteNode.h" />
     <ClInclude Include="Topology\Cluster.h" />
     <ClInclude Include="Topology\Edge.h" />
     <ClInclude Include="MeshProcessing\MeshSimplifier.h" />
@@ -151,6 +152,8 @@
     <ClInclude Include="Utils\Path.h" />
     <ClInclude Include="Utils\PRIME_ARRAY.h" />
     <ClInclude Include="Utils\Utils.h" />
+    <ClInclude Include="Utils\UUID.h" />
+    <ClInclude Include="Utils\UUIDGenerator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
