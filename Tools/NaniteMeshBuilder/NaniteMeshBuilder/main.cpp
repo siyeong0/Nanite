@@ -5,6 +5,7 @@
 #include "MeshProcessing/MeshClustering.h"
 #include "Utils/Utils.h"
 #include "Math/Math.h"
+#include "NaniteMesh\NaniteMesh.h"
 
 int main(void)
 {
@@ -15,11 +16,29 @@ int main(void)
 		//"../../../Resources/Sphere.obj",
 		//"../../../Resources/SphereH.obj",
 		//"../../../Resources/Plane.obj",
-		//"../../../Resources/Dragon_8K.obj",
+		"../../../Resources/Dragon_8K.obj",
 		//"../../../Resources/Dragon_80K.obj",
-		"../../../Resources/boguchi.glb"
+		//"../../../Resources/boguchi.glb"
 	};
 
+	const int TARGET_LEAF_POLGON_COUNT = 128;
+	for (const std::string& modelPath : modelPaths)
+	{
+		std::string modelName = nanite::utils::ExtractFileName(modelPath);
+		std::string outputPath = "../../../Nanite/Assets/Resources/LOD/" + modelName;
+
+		std::cout << "\n\nProcessing model: " << modelName << std::endl;
+
+		nanite::Mesh mesh;
+		mesh.LoadFromFile(modelPath);
+
+		nanite::NaniteMesh naniteMesh;
+		naniteMesh.Build(mesh, TARGET_LEAF_POLGON_COUNT);
+
+		naniteMesh.GetLODMesh(0).SaveToFileDbg(outputPath, modelName + "_nanite_LOD0", ".fbx");
+		naniteMesh.GetLODMesh(1).SaveToFileDbg(outputPath, modelName + "_nanite_LOD1", ".fbx");
+	}
+	return 0;
 	for (const std::string& modelPath : modelPaths)
 	{
 		std::string modelName = nanite::utils::ExtractFileName(modelPath);
@@ -30,7 +49,6 @@ int main(void)
 		nanite::Mesh mesh;
 		mesh.LoadFromFile(modelPath);
 
-		const int TARGET_LEAF_POLGON_COUNT = 128;
 		std::vector<nanite::Cluster> clusters = nanite::ClusterMesh(mesh, TARGET_LEAF_POLGON_COUNT);
 		nanite::utils::PaintMeshByCluster(&mesh, clusters);
 

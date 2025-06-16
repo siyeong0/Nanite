@@ -14,7 +14,7 @@
 namespace nanite
 {
 	static std::vector<int> partGraph(
-		const std::vector<std::set<idx_t>>& triangsAdjacencyList,
+		const std::vector<std::set<idx_t>>& adjacencyList,
 		int numNodes, int numParts, float imbalanceRatio)
 	{
 		idx_t nvtxs = static_cast<idx_t>(numNodes); // Number of nodes
@@ -29,12 +29,12 @@ namespace nanite
 
 		// Fill buffers
 		xadj.reserve(numNodes + 1);
-		adjncy.reserve(triangsAdjacencyList.size() * 3);
+		adjncy.reserve(adjacencyList.size() * 3);
 
 		xadj.emplace_back(0); // Starts with 0
-		for (int triIdx = 0; triIdx < triangsAdjacencyList.size(); ++triIdx)
+		for (int triIdx = 0; triIdx < adjacencyList.size(); ++triIdx)
 		{
-			const auto& neighbors = triangsAdjacencyList[triIdx];
+			const auto& neighbors = adjacencyList[triIdx];
 			for (auto adjLink : neighbors)
 			{
 				adjncy.emplace_back(adjLink); // Index
@@ -76,10 +76,11 @@ namespace nanite
 		return resultParts;
 	}
 
-	static std::vector<Cluster> partMesh(const Mesh& mesh, int numParts, float imbalanceRatio)
+	std::vector<Cluster> PartMesh(const Mesh& mesh, int numParts, float imbalanceRatio)
 	{
 		const int numTriangles = mesh.NumTriangles();
 
+		// Create a map to store edges and the triangles they belong to
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangelesMap;
 		edgeToTriangelesMap.reserve(utils::NextPrime(2 * (numTriangles * 3) + 1));
 		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
@@ -125,10 +126,11 @@ namespace nanite
 		return resultClusters;
 	}
 
-	static std::vector<Cluster> partCluster(const Cluster& cluster, int numParts, float imbalanceRatio)
+	std::vector<Cluster> PartCluster(const Cluster& cluster, int numParts, float imbalanceRatio)
 	{
 		const int numTriangles = static_cast<int>(cluster.Triangles.size());
 
+		// Create a map to store edges and the triangles they belong to
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangelesMap;
 		edgeToTriangelesMap.reserve(utils::NextPrime(2 * (numTriangles * 3) + 1));
 		for (int triIdx : cluster.Triangles)
@@ -170,7 +172,7 @@ namespace nanite
 				}
 			}
 		}
-		
+
 		// Partton the graph of triangles
 		std::vector<int> parts = partGraph(triangsAdjacencyList, numTriangles, numParts, imbalanceRatio);
 
@@ -205,7 +207,7 @@ namespace nanite
 		}
 
 		// Part the mesh into clusters
-		std::vector<Cluster> clusters = nanite::partMesh(mesh, numPartitions, IMBALACNE_RATIO);
+		std::vector<Cluster> clusters = nanite::PartMesh(mesh, numPartitions, IMBALACNE_RATIO);
 
 		// If the number of triangles in a cluster is more than the maximum allowed,
 		// partition the cluster into smaller clusters
@@ -220,7 +222,7 @@ namespace nanite
 			else
 			{
 				int numSubPartitions = static_cast<int>(std::ceilf((float)cluster.Triangles.size() / maxNumTrianglesInCluster) * IMBALACNE_RATIO);
-				std::vector<Cluster> subClusters = partCluster(cluster, numSubPartitions, IMBALACNE_RATIO);
+				std::vector<Cluster> subClusters = PartCluster(cluster, numSubPartitions, IMBALACNE_RATIO);
 				resultClusters.insert(resultClusters.end(), subClusters.begin(), subClusters.end());
 			}
 		}
@@ -247,5 +249,56 @@ namespace nanite
 			<< "  Min AABB volume: " << minAABBVolume << "\n\n";
 
 		return resultClusters;
+	}
+
+	std::vector<std::vector<int>> GroupClusters(const Mesh& mesh, const std::vector<Cluster>& clusters, int maxNumClustersPerGroup)
+	{
+		const int numClusters = static_cast<int>(clusters.size());
+
+		// Create a map to store edges and the clusters they belong to
+		std::unordered_map<Edge, std::vector<idx_t>> edgeToClustersMap;
+		edgeToClustersMap.reserve(utils::NextPrime(2 * (mesh.NumTriangles() * 3) + 1));
+		for (int clusterIdx = 0; clusterIdx < numClusters; ++clusterIdx)
+		{
+			const Cluster& cluster = clusters[clusterIdx];
+			for (int triIdx : cluster.Triangles)
+			{
+				auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
+				edgeToClustersMap[e0].emplace_back(static_cast<idx_t>(clusterIdx));
+				edgeToClustersMap[e1].emplace_back(static_cast<idx_t>(clusterIdx));
+				edgeToClustersMap[e2].emplace_back(static_cast<idx_t>(clusterIdx));
+			}
+		}
+
+		// Build the adjacency list between clusters sharing edges
+		std::vector<std::set<idx_t>> clusterAdjacencyList(numClusters);
+		for (const auto& [edge, clusterIdxs] : edgeToClustersMap)
+		{
+			assert(clusterIdxs.size() <= 2); // Each edge can only belong to two clusters
+			for (size_t i = 0; i < clusterIdxs.size(); ++i)
+			{
+				for (size_t j = i + 1; j < clusterIdxs.size(); ++j)
+				{
+					idx_t c0 = clusterIdxs[i];
+					idx_t c1 = clusterIdxs[j];
+					clusterAdjacencyList[c0].emplace(c1);
+					clusterAdjacencyList[c1].emplace(c0);
+				}
+			}
+		}
+
+		// Part the graph of triangles
+		float IMBALACNE_RATIO = 1.0f; // Forbid imbalance
+		int numPartitions = static_cast<int>(std::ceilf((float)numClusters / maxNumClustersPerGroup) * IMBALACNE_RATIO);
+		std::vector<int> parts = partGraph(clusterAdjacencyList, numClusters, numPartitions, IMBALACNE_RATIO);
+
+		// Create groups based on the partitioning
+		std::vector<std::vector<int>> resultGroups(numPartitions);
+		for (int clusterIdx = 0; clusterIdx < numClusters; ++clusterIdx)
+		{
+			resultGroups[parts[clusterIdx]].emplace_back(clusterIdx);
+		}
+
+		return resultGroups;
 	}
 }

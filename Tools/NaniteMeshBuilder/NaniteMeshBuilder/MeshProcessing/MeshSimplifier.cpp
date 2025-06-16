@@ -24,15 +24,15 @@ namespace nanite
 		std::unordered_map<Edge, int> edgeUsage;
 		std::unordered_map<uint32_t, std::set<uint32_t>> vertToTriMap;
 
-		quadrics.resize(mesh.Vertices.size());
-		vertToTriMap.reserve(utils::NextPrime(2 * mesh.Vertices.size() + 1));
-		for (int triIdx = 0; triIdx < mesh.NumTriangles(); ++triIdx)
+		quadrics.resize(srcMesh.Vertices.size());
+		vertToTriMap.reserve(utils::NextPrime(2 * srcMesh.Vertices.size() + 1));
+		for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
 		{
-			auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
-			auto [v0, v1, v2] = mesh.GetTriangleVertices(triIdx);
-			auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
+			auto [i0, i1, i2] = srcMesh.GetTriangleIndices(triIdx);
+			auto [v0, v1, v2] = srcMesh.GetTriangleVertices(triIdx);
+			auto [e0, e1, e2] = srcMesh.GetTriangleEdges(triIdx);
 			// Compute quadrics
-			const FVector3& normal = mesh.Normals[triIdx];
+			const FVector3& normal = srcMesh.Normals[triIdx];
 			float d = -normal.Dot(v0);
 			quadrics[i0].AddPlane(normal, d);
 			quadrics[i1].AddPlane(normal, d);
@@ -246,17 +246,22 @@ namespace nanite
 			for (const Edge& affEdge : affectedEdges)
 			{
 				int phase = collapseQueue.Erase(affEdge);
+				if (phase < 0)
+				{
+					// Edge is not in the queue
+					continue;
+				}
 				collapseQueue.Insert(affEdge, phase);
 			}
 		}
 
-		// Remove invalid vertices and triangles
 		Mesh resultMesh;
 		resultMesh.Vertices.reserve(numValidVertices);
 		resultMesh.Indices.reserve(numValidTriangles * 3);
 		resultMesh.Normals.reserve(numValidTriangles);
 		resultMesh.Colors.reserve(numValidTriangles);
 
+		// Remove invalid vertices
 		std::unordered_map<uint32_t, uint32_t> vertIndexMap;
 		for (int i = 0; i < srcMesh.Vertices.size(); ++i)
 		{
@@ -266,7 +271,7 @@ namespace nanite
 			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
 		}
 
-		// Remove dubplicate triangles
+		// Remove dubplicate and invalid triangles
 		struct UniqueTriangle
 		{
 			std::array<uint32_t, 3> Indices;

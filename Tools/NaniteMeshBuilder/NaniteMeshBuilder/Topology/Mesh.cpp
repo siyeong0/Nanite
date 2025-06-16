@@ -97,6 +97,10 @@ namespace nanite
 					indicesWithEdgeUsedTwiceTmp.emplace(edge.GetA());
 					indicesWithEdgeUsedTwiceTmp.emplace(edge.GetB());
 				}
+				else
+				{
+					assert(false && "Edge usage count should be either 1 or 2.");
+				}
 			}
 
 			std::set<uint32_t> indicesWithEdgeUsedOnce;
@@ -196,26 +200,6 @@ namespace nanite
 			Vertices = std::move(mergedVertices);
 			Indices = std::move(mergedIndices);
 		}
-		
-		struct UniqueTriangle
-		{
-			std::array<uint32_t, 3> Indices;
-			std::array<uint32_t, 3> SortedIndices;
-			int TriangleIndex = -1;
-
-			UniqueTriangle(uint32_t i0, uint32_t i1, uint32_t i2, int triIdx)
-				: Indices({ i0, i1, i2 })
-				, SortedIndices({ i0, i1, i2 })
-				, TriangleIndex(triIdx)
-			{
-				std::sort(SortedIndices.begin(), SortedIndices.end());
-			}
-
-			bool operator<(const UniqueTriangle& other) const
-			{
-				return SortedIndices < other.SortedIndices;
-			}
-		};
 
 		{
 			std::unordered_map<Edge, int> edgeUsage;
@@ -235,6 +219,36 @@ namespace nanite
 			}
 			std::cout << std::endl;
 		}
+	}
+
+	void Mesh::RemoveUnusedVertices()
+	{
+		std::vector<FVector3> resultVertices;;
+		std::vector<uint32_t> resultIndices;;
+		resultVertices.reserve(NumVertices());
+		resultIndices.reserve(NumTriangles() * 3);
+
+		std::unordered_set<uint32_t> usedVertexIndices;
+		for (uint32_t idx : Indices)
+		{
+			usedVertexIndices.insert(idx);
+		}
+
+		std::unordered_map<uint32_t, uint32_t> vertIndexMap;
+		for (uint32_t usedVertIndex : usedVertexIndices)
+		{
+			const FVector3& v = Vertices[usedVertIndex];
+			resultVertices.emplace_back(v);
+			vertIndexMap[usedVertIndex] = static_cast<uint32_t>(resultVertices.size() - 1);
+		}
+
+		for (uint32_t idx : Indices)
+		{
+			resultIndices.emplace_back(vertIndexMap[idx]);
+		}
+
+		Vertices = std::move(resultVertices);
+		Indices = std::move(resultIndices);
 	}
 
 	std::tuple<uint32_t&, uint32_t&, uint32_t&> Mesh::GetTriangleIndices(int index)
@@ -324,21 +338,21 @@ namespace nanite
 		return true;
 	}
 
-	bool Mesh::SaveToFile(const std::string& path)
+	bool Mesh::SaveToFile(const std::string& path) const
 	{
 		std::string directory = utils::ExtractDirectory(path);
 		std::string file = utils::ExtractFileName(path);
 		return SaveToFile(directory, file);
 	}
 
-	bool Mesh::SaveToFile(const std::string& directory, const std::string& file)
+	bool Mesh::SaveToFile(const std::string& directory, const std::string& file) const
 	{
 		std::string fileName = utils::ExtractFileName(file);
 		std::string extension = utils::ExtractExtension(file);
 		return SaveToFile(directory, fileName, extension);
 	}
 
-	bool Mesh::SaveToFile(const std::string& directory, const std::string& name, const std::string& format)
+	bool Mesh::SaveToFile(const std::string& directory, const std::string& name, const std::string& format) const
 	{
 		std::string extension = format;
 		if (extension == "")
@@ -358,20 +372,35 @@ namespace nanite
 
 		const std::vector<FVector3>& outVertices = Vertices;
 		const std::vector<uint32_t>& outIndices = Indices;
+
 		std::vector<FVector3> outNormals;
-		std::vector<FVector3> outColors;
 		outNormals.resize(NumVertices());
-		outColors.resize(NumVertices());
-		if (Colors.size() < NumTriangles()) Colors.resize(NumTriangles(), { 1.f, 1.f, 1.f });
 		for (int i = 0; i < NumTriangles(); ++i)
 		{
 			auto [i0, i1, i2] = GetTriangleIndices(i);
 			outNormals[i0] = Normals[i];
 			outNormals[i1] = Normals[i];
 			outNormals[i2] = Normals[i];
-			outColors[i0] = Colors[i];
-			outColors[i1] = Colors[i];
-			outColors[i2] = Colors[i];
+		}
+
+		std::vector<FVector3> outColors;
+		outColors.resize(NumVertices());
+		if (Colors.size() == NumTriangles())
+		{
+			for (int i = 0; i < NumTriangles(); ++i)
+			{
+				auto [i0, i1, i2] = GetTriangleIndices(i);
+				outColors[i0] = Colors[i];
+				outColors[i1] = Colors[i];
+				outColors[i2] = Colors[i];
+			}
+		}
+		else
+		{
+			for (int i = 0; i < NumVertices(); ++i)
+			{
+				outColors[i] = FVector3(1.0f, 1.0f, 1.0f); // Default color
+			}
 		}
 
 		aiScene* outScene = new aiScene();
@@ -456,7 +485,7 @@ namespace nanite
 		return true;
 	}
 
-	bool Mesh::SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format)
+	bool Mesh::SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format) const
 	{
 		std::string extension = format;
 		if (extension == "")

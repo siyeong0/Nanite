@@ -11,6 +11,8 @@ namespace nanite
 {
 	struct Mesh
 	{
+		std::string Name;
+
 		std::vector<FVector3> Vertices;
 		std::vector<uint32_t> Indices;
 		// per triangles
@@ -22,6 +24,7 @@ namespace nanite
 		const std::string DEFAULT_FORMAT = ".fbx";
 
 		Mesh() = default;
+		Mesh(const std::string& name) : Name(name) {}
 		~Mesh();
 		Mesh(const Mesh& other);
 		Mesh(Mesh&& other) noexcept;
@@ -29,6 +32,7 @@ namespace nanite
 
 		void ComputeNormals();
 		void MergeDuplicatedVertices();
+		void RemoveUnusedVertices();
 
 		std::tuple<uint32_t&, uint32_t&, uint32_t&> GetTriangleIndices(int index);
 		const std::tuple<const uint32_t&, const uint32_t&, const uint32_t&> GetTriangleIndices(int index) const;
@@ -41,11 +45,11 @@ namespace nanite
 		inline int NumTriangles() const { return static_cast<int>(Indices.size() / 3); }
 
 		bool LoadFromFile(const std::string& path);
-		bool SaveToFile(const std::string& path);
-		bool SaveToFile(const std::string& path, const std::string& format);
-		bool SaveToFile(const std::string& directory, const std::string& name, const std::string& format);
-		bool SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format);
-		
+		bool SaveToFile(const std::string& path) const;
+		bool SaveToFile(const std::string& path, const std::string& format) const;
+		bool SaveToFile(const std::string& directory, const std::string& name, const std::string& format) const;
+		bool SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format) const;
+
 	private:
 		static aiMaterial* deepCopyMaterial(const aiMaterial* src);
 		static std::ostream* msOutStream;

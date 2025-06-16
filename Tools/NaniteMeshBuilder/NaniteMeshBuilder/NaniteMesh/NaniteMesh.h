@@ -2,13 +2,15 @@
 #include <string>
 
 #include "../Topology/Mesh.h"
+#include "NaniteNode.h"
 
 namespace nanite
 {
 	class NaniteMesh
 	{
 	public:
-		NaniteMesh() = default;
+		NaniteMesh();
+		NaniteMesh(const std::string name);
 		~NaniteMesh() = default;
 		NaniteMesh(const std::string& name) : mName(name) {}
 		NaniteMesh(const NaniteMesh& other) = delete;
@@ -18,15 +20,12 @@ namespace nanite
 
 		bool Build(const Mesh& originMesh, int leafTriThreshold);
 
+		inline const Mesh& GetLODMesh(int lod) const { return mLODMeshes[lod]; }
+
 	private:
 		std::string mName;
 
-		struct Node
-		{
-			int LOD = -1;
-
-			Node* Parent = nullptr;
-			std::vector<Node*> Childs;
-		};
+		std::vector<NaniteNode> mNodes;
+		std::vector<Mesh> mLODMeshes;
 	};
 }

@@ -29,7 +29,7 @@ namespace nanite
 		{
 			bool bFixA = mFixedVertices.find(e.GetA()) != mFixedVertices.end();
 			bool bFixB = mFixedVertices.find(e.GetB()) != mFixedVertices.end();
-			if (bFixA || bFixB) return;
+			if (bFixA && bFixB) return;
 
 			Collapse collapse;
 			collapse.Edge = e;
@@ -60,7 +60,7 @@ namespace nanite
 				mCollapseSet.erase(it);
 				return phase;
 			}
-			return 0;
+			return -1;
 		}
 
 		int Erase(const Collapse& c)

@@ -1,4 +1,8 @@
 #pragma once
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+
 #include "Geometry.h"
 #include "Path.h"
 #include "PRIME_ARRAY.h"
@@ -35,19 +39,6 @@ namespace nanite
 			return rgb + FVector3{ m, m, m };
 		}
 
-		inline void PaintMeshByCluster(Mesh* mesh, const std::vector<Cluster>& clusters)
-		{
-			for (int i = 0; i < clusters.size(); ++i)
-			{
-				const nanite::Cluster& cluster = clusters[i];
-				nanite::FVector3 color = nanite::utils::HSVtoRGB(std::fmod(i / 6.f, 1.f), 1.f, 1.f);
-				for (int triIdx : cluster.Triangles)
-				{
-					mesh->Colors[triIdx] = color;
-				}
-			}
-		}
-
 		inline bool IsPrime(size_t num)
 		{
 			if (num < 2) return false;
@@ -72,6 +63,101 @@ namespace nanite
 			else 
 			{
 				return 0;
+			}
+		}
+
+		inline void PaintMeshByCluster(
+			Mesh* mesh, 
+			const std::vector<Cluster>& clusters, 
+			const std::vector<FVector3>& colorCandidates = {})
+		{
+			std::vector<FVector3> colors = colorCandidates;
+			const int DEFAULT_COLOR_CANDIDATES = 6;
+			if (colors.empty())
+			{
+				for (int i = 0; i < DEFAULT_COLOR_CANDIDATES; ++i)
+				{
+					colors.emplace_back(utils::HSVtoRGB(std::fmod((float)i / DEFAULT_COLOR_CANDIDATES, 1.f), 1.f, 1.f));
+				}
+			}
+
+			// Create a map to store verts and the clusters they belong to
+			std::unordered_map<uint32_t, std::vector<int>> vertToClustersMap;
+			vertToClustersMap.reserve(utils::NextPrime(2 * (mesh->NumTriangles() * 3) + 1));
+			for (int clusterIdx = 0; clusterIdx < clusters.size(); ++clusterIdx)
+			{
+				const Cluster& cluster = clusters[clusterIdx];
+				for (int triIdx : cluster.Triangles)
+				{
+					auto [i0, i1, i2] = mesh->GetTriangleIndices(triIdx);
+					vertToClustersMap[i0].emplace_back(clusterIdx);
+					vertToClustersMap[i1].emplace_back(clusterIdx);
+					vertToClustersMap[i2].emplace_back(clusterIdx);
+				}
+			}
+
+			// Find neighboring clusters based on shared edges
+			std::unordered_map<int, std::unordered_set<int>> neighborClusters;
+			neighborClusters.reserve(utils::NextPrime(clusters.size() * 2 + 1));
+			for (const auto& [vert, clusterIdxs] : vertToClustersMap)
+			{
+				for (size_t i = 0; i < clusterIdxs.size(); ++i)
+				{
+					for (size_t j = i + 1; j < clusterIdxs.size(); ++j)
+					{
+						int c0 = clusterIdxs[i];
+						int c1 = clusterIdxs[j];
+						neighborClusters[c0].emplace(c1);
+						neighborClusters[c1].emplace(c0);
+					}
+				}
+			}
+			
+			// Assign colors to clusters
+			// Ensure that neighboring clusters have different colors
+			// Use the least used color first
+			std::unordered_map<int, FVector3> clusterColors;
+			clusterColors.reserve(utils::NextPrime(clusters.size() * 2 + 1));
+			std::vector<int> colorUsageCount(colors.size());
+			for (int clusterIdx = 0; clusterIdx < clusters.size(); ++clusterIdx)
+			{
+				const Cluster& cluster = clusters[clusterIdx];
+				// Find all colors of neighboring clusters
+				std::vector<FVector3> neighborColors(neighborClusters[clusterIdx].size());
+				for (int neighborIdx : neighborClusters[clusterIdx])
+				{
+					if (clusterColors.find(neighborIdx) != clusterColors.end())
+					{
+						neighborColors.emplace_back(clusterColors[neighborIdx]);
+					}
+				}
+				// Assign a unique color to the current cluster
+				nanite::FVector3 availColor = { 0,0,0 };
+				std::vector<int> colorIndices(colorUsageCount.size());
+				for (int i = 0; i < colorIndices.size(); ++i) colorIndices[i] = i;
+				std::sort(colorIndices.begin(), colorIndices.end(), [&](size_t a, size_t b) { return colorUsageCount[a] < colorUsageCount[b]; });
+
+				for (int cidx : colorIndices)
+				{
+					if (std::find(neighborColors.begin(), neighborColors.end(), colors[cidx]) == neighborColors.end())
+					{
+						availColor = colors[cidx];
+						colorUsageCount[cidx]++;
+						break;
+					}
+				}
+				clusterColors[clusterIdx] = availColor;
+			}
+
+			// Apply colors to the triangles
+			for (int clusterIdx = 0; clusterIdx < clusters.size(); ++clusterIdx)
+			{
+				const Cluster& cluster = clusters[clusterIdx];
+				FVector3 color = clusterColors[clusterIdx];
+				for (int triIdx : cluster.Triangles)
+				{
+					mesh->Colors[triIdx] = color;
+				}
 			}
 		}
 	}
