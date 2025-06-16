@@ -274,6 +274,7 @@ namespace nanite
 		std::vector<std::set<idx_t>> clusterAdjacencyList(numClusters);
 		for (const auto& [edge, clusterIdxs] : edgeToClustersMap)
 		{
+			// TODO: assertion failed
 			assert(clusterIdxs.size() <= 2); // Each edge can only belong to two clusters
 			for (size_t i = 0; i < clusterIdxs.size(); ++i)
 			{

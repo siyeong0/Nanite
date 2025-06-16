@@ -16,9 +16,9 @@ int main(void)
 		//"../../../Resources/Sphere.obj",
 		//"../../../Resources/SphereH.obj",
 		//"../../../Resources/Plane.obj",
-		"../../../Resources/Dragon_8K.obj",
+		//"../../../Resources/Dragon_8K.obj",
 		//"../../../Resources/Dragon_80K.obj",
-		//"../../../Resources/boguchi.glb"
+		"../../../Resources/boguchi.glb"
 	};
 
 	const int TARGET_LEAF_POLGON_COUNT = 128;
@@ -31,12 +31,15 @@ int main(void)
 
 		nanite::Mesh mesh;
 		mesh.LoadFromFile(modelPath);
-
+		mesh = nanite::Mesh::ExractUnconnectedMeshes(mesh)[0];
+		
 		nanite::NaniteMesh naniteMesh;
 		naniteMesh.Build(mesh, TARGET_LEAF_POLGON_COUNT);
 
-		naniteMesh.GetLODMesh(0).SaveToFileDbg(outputPath, modelName + "_nanite_LOD0", ".fbx");
-		naniteMesh.GetLODMesh(1).SaveToFileDbg(outputPath, modelName + "_nanite_LOD1", ".fbx");
+		for (int i = 0; i < naniteMesh.GetLODDepth(); ++i)
+		{
+			naniteMesh.GetLODMesh(i).SaveToFileDbg(outputPath, modelName + "_nanite_LOD" + std::to_string(i), ".fbx");
+		}
 	}
 	return 0;
 	for (const std::string& modelPath : modelPaths)

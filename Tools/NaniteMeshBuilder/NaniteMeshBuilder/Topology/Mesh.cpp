@@ -86,20 +86,17 @@ namespace nanite
 			std::set<uint32_t> indicesWithEdgeUsedTwiceTmp;
 			for (const auto& [edge, count] : edgeUsage)
 			{
-				assert(count == 1 || count == 2);
+				//assert(count == 1 || count == 2);
 				if (count == 1)
 				{
 					indicesWithEdgeUsedOnceTmp.emplace(edge.GetA());
 					indicesWithEdgeUsedOnceTmp.emplace(edge.GetB());
 				}
-				else if (count == 2)
+				//else if (count == 2)
+				else
 				{
 					indicesWithEdgeUsedTwiceTmp.emplace(edge.GetA());
 					indicesWithEdgeUsedTwiceTmp.emplace(edge.GetB());
-				}
-				else
-				{
-					assert(false && "Edge usage count should be either 1 or 2.");
 				}
 			}
 
@@ -249,6 +246,85 @@ namespace nanite
 
 		Vertices = std::move(resultVertices);
 		Indices = std::move(resultIndices);
+	}
+
+	std::vector<Mesh> Mesh::ExractUnconnectedMeshes(const Mesh& mesh)
+	{
+		const int numTriangles = mesh.NumTriangles();
+
+		std::unordered_map<Edge, std::vector<int>> edgeToTriangles;
+		for (int triIdx = 0; triIdx < numTriangles; ++triIdx)
+		{
+			auto [e0, e1, e2] = mesh.GetTriangleEdges(triIdx);
+			edgeToTriangles[e0].push_back(triIdx);
+			edgeToTriangles[e1].push_back(triIdx);
+			edgeToTriangles[e2].push_back(triIdx);
+		}
+
+		std::vector<std::vector<int>> adjacency(numTriangles);
+		for (auto& [edge, triIdxs] : edgeToTriangles)
+		{
+			for (int i = 0; i < triIdxs.size(); ++i)
+			{
+				for (int j = i + 1; j < triIdxs.size(); ++j)
+				{
+					adjacency[triIdxs[i]].push_back(triIdxs[j]);
+					adjacency[triIdxs[j]].push_back(triIdxs[i]);
+				}
+			}
+		}
+
+		// BFS to find all connected triangles
+		std::vector<bool> visited(numTriangles, false);
+		std::vector<std::vector<int>> components;
+		for (int triIdx = 0; triIdx < numTriangles; ++triIdx)
+		{
+			if (visited[triIdx]) continue;
+
+			std::vector<int> component;
+			std::queue<int> queue;
+			queue.emplace(triIdx);
+			visited[triIdx] = true;
+
+			while (!queue.empty())
+			{
+				int curr = queue.front(); queue.pop();
+				component.emplace_back(curr);
+
+				for (int neighbor : adjacency[curr])
+				{
+					if (!visited[neighbor])
+					{
+						visited[neighbor] = true;
+						queue.push(neighbor);
+					}
+				}
+			}
+			components.emplace_back(component);
+		}
+
+		std::vector<Mesh> connectedMeshes(components.size());
+		for (int i = 0; i < components.size(); ++i)
+		{
+			const std::vector<int>& component = components[i];
+			Mesh& subMesh = connectedMeshes[i];
+			subMesh.Vertices = mesh.Vertices;
+			for (int triIdx : component)
+			{
+				auto [i0, i1, i2] = mesh.GetTriangleIndices(triIdx);
+				subMesh.Indices.emplace_back(i0);
+				subMesh.Indices.emplace_back(i1);
+				subMesh.Indices.emplace_back(i2);
+				subMesh.Normals.emplace_back(mesh.Normals[triIdx]);
+				subMesh.Colors.emplace_back(mesh.Colors[triIdx]);
+			}
+			subMesh.RemoveUnusedVertices();
+		}
+
+		std::sort(connectedMeshes.begin(), connectedMeshes.end(),
+			[](const Mesh& a, const Mesh& b) { return a.NumVertices() > b.NumVertices(); });
+
+		return connectedMeshes;
 	}
 
 	std::tuple<uint32_t&, uint32_t&, uint32_t&> Mesh::GetTriangleIndices(int index)

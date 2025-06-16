@@ -33,6 +33,7 @@ namespace nanite
 		void ComputeNormals();
 		void MergeDuplicatedVertices();
 		void RemoveUnusedVertices();
+		static std::vector<Mesh> ExractUnconnectedMeshes(const Mesh& mesh);
 
 		std::tuple<uint32_t&, uint32_t&, uint32_t&> GetTriangleIndices(int index);
 		const std::tuple<const uint32_t&, const uint32_t&, const uint32_t&> GetTriangleIndices(int index) const;

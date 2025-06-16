@@ -20,12 +20,13 @@ namespace nanite
 
 		bool Build(const Mesh& originMesh, int leafTriThreshold);
 
+		inline int GetLODDepth() const { return mLODMeshes.size(); };
 		inline const Mesh& GetLODMesh(int lod) const { return mLODMeshes[lod]; }
 
 	private:
 		std::string mName;
 
-		std::vector<NaniteNode> mNodes;
+		std::vector<std::vector<NaniteNode>> mNodes;
 		std::vector<Mesh> mLODMeshes;
 	};
 }
