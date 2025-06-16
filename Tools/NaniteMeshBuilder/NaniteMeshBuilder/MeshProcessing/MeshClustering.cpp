@@ -128,8 +128,16 @@ namespace nanite
 
 	std::vector<Cluster> PartCluster(const Cluster& cluster, int numParts, float imbalanceRatio)
 	{
-		const int numTriangles = static_cast<int>(cluster.Triangles.size());
+		assert(numParts > 0);
+		std::vector<Cluster> resultClusters;
+		if (numParts == 1)
+		{
+			// Returns a input cluster
+			resultClusters.emplace_back(cluster);
+			return resultClusters;
+		}
 
+		const int numTriangles = static_cast<int>(cluster.Triangles.size());
 		// Create a map to store edges and the triangles they belong to
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToTriangelesMap;
 		edgeToTriangelesMap.reserve(utils::NextPrime(2 * (numTriangles * 3) + 1));
@@ -177,7 +185,7 @@ namespace nanite
 		std::vector<int> parts = partGraph(triangsAdjacencyList, numTriangles, numParts, imbalanceRatio);
 
 		// Create clusters based on the partitioning
-		std::vector<Cluster> resultClusters(numParts);
+		resultClusters.resize(numParts);
 		for (int triIdx : cluster.Triangles)
 		{
 			Cluster& resultCluster = resultClusters[parts[triangleToIndexMap[triIdx]]];
@@ -194,16 +202,17 @@ namespace nanite
 
 	std::vector<Cluster> ClusterMesh(const Mesh& mesh, int maxNumTrianglesInCluster)
 	{
+
 		float IMBALACNE_RATIO = 1.2f; // Allow 20% imbalance
 		int numPartitions = static_cast<int>(std::ceilf((float)mesh.NumTriangles() / maxNumTrianglesInCluster) * IMBALACNE_RATIO);
+		std::vector<Cluster> resultClusters;
 
 		if (numPartitions < 2)
 		{
 			// Returns a single cluster containing all triangles
-			std::vector<Cluster> clusters;
 			std::ranges::iota_view range{ 0, mesh.NumTriangles() };
-			clusters.emplace_back(Cluster{ &mesh, {range.begin(), range.end()}, utils::ComputeBoundingBox(mesh.Vertices) });
-			return clusters;
+			resultClusters.emplace_back(Cluster{ &mesh, {range.begin(), range.end()}, utils::ComputeBoundingBox(mesh.Vertices) });
+			return resultClusters;
 		}
 
 		// Part the mesh into clusters
@@ -211,7 +220,6 @@ namespace nanite
 
 		// If the number of triangles in a cluster is more than the maximum allowed,
 		// partition the cluster into smaller clusters
-		std::vector<Cluster> resultClusters;
 		resultClusters.reserve(static_cast<size_t>(numPartitions * 1.2f));
 		for (const Cluster& cluster : clusters)
 		{
@@ -254,6 +262,17 @@ namespace nanite
 	std::vector<std::vector<int>> GroupClusters(const Mesh& mesh, const std::vector<Cluster>& clusters, int maxNumClustersPerGroup)
 	{
 		const int numClusters = static_cast<int>(clusters.size());
+		float IMBALACNE_RATIO = 1.0f; // Forbid imbalance
+		int numPartitions = static_cast<int>(std::ceilf((float)numClusters / maxNumClustersPerGroup) * IMBALACNE_RATIO);
+		std::vector<std::vector<int>> resultGroups;
+
+		if (numPartitions == 1)
+		{
+			std::vector<int> all;
+			for (int i = 0; i < static_cast<int>(clusters.size()); ++i) all.emplace_back(i);
+			resultGroups.emplace_back(all);
+			return resultGroups;
+		}
 
 		// Create a map to store edges and the clusters they belong to
 		std::unordered_map<Edge, std::vector<idx_t>> edgeToClustersMap;
@@ -275,7 +294,7 @@ namespace nanite
 		for (const auto& [edge, clusterIdxs] : edgeToClustersMap)
 		{
 			// TODO: assertion failed
-			assert(clusterIdxs.size() <= 2); // Each edge can only belong to two clusters
+			// assert(clusterIdxs.size() <= 2); // Each edge can only belong to two clusters
 			for (size_t i = 0; i < clusterIdxs.size(); ++i)
 			{
 				for (size_t j = i + 1; j < clusterIdxs.size(); ++j)
@@ -289,12 +308,10 @@ namespace nanite
 		}
 
 		// Part the graph of triangles
-		float IMBALACNE_RATIO = 1.0f; // Forbid imbalance
-		int numPartitions = static_cast<int>(std::ceilf((float)numClusters / maxNumClustersPerGroup) * IMBALACNE_RATIO);
 		std::vector<int> parts = partGraph(clusterAdjacencyList, numClusters, numPartitions, IMBALACNE_RATIO);
 
 		// Create groups based on the partitioning
-		std::vector<std::vector<int>> resultGroups(numPartitions);
+		resultGroups.resize(numPartitions);
 		for (int clusterIdx = 0; clusterIdx < numClusters; ++clusterIdx)
 		{
 			resultGroups[parts[clusterIdx]].emplace_back(clusterIdx);

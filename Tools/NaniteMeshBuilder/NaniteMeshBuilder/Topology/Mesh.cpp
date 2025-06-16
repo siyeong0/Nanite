@@ -379,7 +379,6 @@ namespace nanite
 		const int numVertices = mesh->mNumVertices;
 		const int numFaces = mesh->mNumFaces;
 		const int numIndices = numFaces * 3;
-		const bool hasNormals = mesh->HasNormals();
 
 		Vertices.clear();
 		Vertices.reserve(numVertices);

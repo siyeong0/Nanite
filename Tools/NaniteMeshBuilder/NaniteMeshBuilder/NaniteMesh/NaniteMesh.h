@@ -20,8 +20,10 @@ namespace nanite
 
 		bool Build(const Mesh& originMesh, int leafTriThreshold);
 
-		inline int GetLODDepth() const { return mLODMeshes.size(); };
+		inline int GetLODDepth() const { return static_cast<int>(mLODMeshes.size()); };
 		inline const Mesh& GetLODMesh(int lod) const { return mLODMeshes[lod]; }
+
+		void PaintByCluster();
 
 	private:
 		std::string mName;

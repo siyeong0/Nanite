@@ -67,17 +67,14 @@ namespace nanite
 		}
 
 		inline void PaintMeshByCluster(
-			Mesh* mesh, 
-			const std::vector<Cluster>& clusters, 
-			const std::vector<FVector3>& colorCandidates = {})
+			Mesh* mesh, const std::vector<Cluster>& clusters, int numColorCandidates = 6)
 		{
-			std::vector<FVector3> colors = colorCandidates;
-			const int DEFAULT_COLOR_CANDIDATES = 6;
+			std::vector<FVector3> colors;
 			if (colors.empty())
 			{
-				for (int i = 0; i < DEFAULT_COLOR_CANDIDATES; ++i)
+				for (int i = 0; i < numColorCandidates; ++i)
 				{
-					colors.emplace_back(utils::HSVtoRGB(std::fmod((float)i / DEFAULT_COLOR_CANDIDATES, 1.f), 1.f, 1.f));
+					colors.emplace_back(utils::HSVtoRGB(std::fmod((float)i / numColorCandidates, 1.f), 1.f, 1.f));
 				}
 			}
 
@@ -121,7 +118,6 @@ namespace nanite
 			std::vector<int> colorUsageCount(colors.size());
 			for (int clusterIdx = 0; clusterIdx < clusters.size(); ++clusterIdx)
 			{
-				const Cluster& cluster = clusters[clusterIdx];
 				// Find all colors of neighboring clusters
 				std::vector<FVector3> neighborColors(neighborClusters[clusterIdx].size());
 				for (int neighborIdx : neighborClusters[clusterIdx])

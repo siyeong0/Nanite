@@ -47,12 +47,12 @@ namespace nanite
 				childClusters.emplace_back(childNodes[nodeIdx].GetClusterData());
 			}
 			// Make group of N clusters
-			std::vector<std::vector<int>> clusterIndicesByGroup = GroupClusters(srcMesh, childClusters, MAX_CLUSTERS_PER_GROUP);
+			std::vector<std::vector<int>> clusterGroups = GroupClusters(srcMesh, childClusters, MAX_CLUSTERS_PER_GROUP);
 
 			// Simplify the groups of clusters
 			std::vector<Mesh> simplifiedMeshes;
-			simplifiedMeshes.reserve(clusterIndicesByGroup.size());
-			for (const std::vector<int>& clusterIndices : clusterIndicesByGroup)
+			simplifiedMeshes.reserve(clusterGroups.size());
+			for (const std::vector<int>& clusterIndices : clusterGroups)
 			{
 				Mesh groupMesh;
 				groupMesh.Vertices = srcMesh.Vertices;
@@ -96,7 +96,7 @@ namespace nanite
 			integratedMesh.MergeDuplicatedVertices();
 
 			// If there's only one group, exit the loop
-			if (clusterIndicesByGroup.size() <= 2)
+			if (clusterGroups.size() == 1)
 			{
 				Mesh& rootMesh = integratedMesh;
 				Cluster rootCluster;
@@ -116,12 +116,12 @@ namespace nanite
 			}
 
 			// Create a new level of parent nodes in the hierarchy
-			for (int parentIndex = 0; parentIndex < clusterIndicesByGroup.size(); ++parentIndex)
+			for (int parentIndex = 0; parentIndex < clusterGroups.size(); ++parentIndex)
 			{
 				// The order child clusters corresponds to the clusters held by each child nodes.
-				// so clusterIndicesByGroup also represents the child node indices of each group.
+				// so clusterGroups also represents the child node indices of each group.
 				// and group is separated to two clusters, which are the parents.
-				std::vector<int> childIndices = clusterIndicesByGroup[parentIndex];
+				std::vector<int> childIndices = clusterGroups[parentIndex];
 				for (const Cluster& parentCluster : parentClusters[parentIndex])
 				{
 					NaniteNode& parentNode = parentNodes.emplace_back(parentCluster);
@@ -134,5 +134,20 @@ namespace nanite
 		}
 
 		return true;
+	}
+
+	void NaniteMesh::PaintByCluster()
+	{
+		for (int level = 0; level < GetLODDepth(); ++level)
+		{
+			Mesh& mesh = mLODMeshes[level];
+			std::vector<Cluster> clusters;
+			for (const NaniteNode& node : mNodes[level])
+			{
+				clusters.emplace_back(node.GetClusterData());
+			}
+
+			utils::PaintMeshByCluster(&mesh, clusters , 12);
+		}
 	}
 }

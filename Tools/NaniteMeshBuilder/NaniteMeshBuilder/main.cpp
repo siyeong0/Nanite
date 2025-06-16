@@ -14,11 +14,11 @@ int main(void)
 	std::string modelPaths[] = 
 	{
 		//"../../../Resources/Sphere.obj",
-		//"../../../Resources/SphereH.obj",
+		"../../../Resources/SphereH.obj",
 		//"../../../Resources/Plane.obj",
 		//"../../../Resources/Dragon_8K.obj",
 		//"../../../Resources/Dragon_80K.obj",
-		"../../../Resources/boguchi.glb"
+		//"../../../Resources/boguchi.glb"
 	};
 
 	const int TARGET_LEAF_POLGON_COUNT = 128;
@@ -36,6 +36,7 @@ int main(void)
 		nanite::NaniteMesh naniteMesh;
 		naniteMesh.Build(mesh, TARGET_LEAF_POLGON_COUNT);
 
+		naniteMesh.PaintByCluster();
 		for (int i = 0; i < naniteMesh.GetLODDepth(); ++i)
 		{
 			naniteMesh.GetLODMesh(i).SaveToFileDbg(outputPath, modelName + "_nanite_LOD" + std::to_string(i), ".fbx");
