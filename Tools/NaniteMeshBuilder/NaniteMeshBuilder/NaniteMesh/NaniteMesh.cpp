@@ -150,4 +150,9 @@ namespace nanite
 			utils::PaintMeshByCluster(&mesh, clusters , 12);
 		}
 	}
+
+	bool NaniteMesh::Save(const std::string& path) const
+	{
+
+	}
 }
