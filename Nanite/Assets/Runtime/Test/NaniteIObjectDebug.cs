@@ -9,7 +9,8 @@ public class RotateObject : MonoBehaviour
 	[SerializeField] float rotationSpeed = 25f;
 
 	[Header("Visualization")]
-	[SerializeField] bool drawNormals = true;
+	[SerializeField] bool drawTriangleNormals = true;
+	[SerializeField] bool drawVertNormals = true;
 	[SerializeField] float normalLength = 0.1f;
 	[SerializeField] Color normalColor = Color.magenta;
 	[SerializeField] bool drawAABBs = true;
@@ -25,7 +26,7 @@ public class RotateObject : MonoBehaviour
 			transform.Rotate(Vector3.up, rotationSpeed * Time.deltaTime, Space.Self);
 		}
 
-		if (AABBs == null)
+		if (drawAABBs && AABBs == null)
 		{
 			string folder = transform.parent.name;
 			string name = gameObject.name;
@@ -41,7 +42,7 @@ public class RotateObject : MonoBehaviour
 	{
 		Gizmos.matrix = transform.localToWorldMatrix;
 
-		if (drawAABBs)
+		if (drawAABBs && AABBs != null)
 		{
 			if (boundsIndex > 0 && boundsIndex <= AABBs.Count)
 			{
@@ -64,7 +65,7 @@ public class RotateObject : MonoBehaviour
 			}
 		}
 
-		if (drawNormals)
+		if (drawTriangleNormals)
 		{
 			MeshFilter mf = GetComponent<MeshFilter>();
 			if (mf == null || mf.sharedMesh == null)
@@ -77,21 +78,35 @@ public class RotateObject : MonoBehaviour
 
 			Gizmos.color = normalColor;
 
-			//for (int i = 0; i < triangles.Length; i += 3)
-			//{
-			//	Vector3 v0 = vertices[triangles[i]];
-			//	Vector3 v1 = vertices[triangles[i + 1]];
-			//	Vector3 v2 = vertices[triangles[i + 2]];
+			for (int i = 0; i < triangles.Length; i += 3)
+			{
+				Vector3 v0 = vertices[triangles[i]];
+				Vector3 v1 = vertices[triangles[i + 1]];
+				Vector3 v2 = vertices[triangles[i + 2]];
 
-			//	Vector3 center = (v0 + v1 + v2) / 3f;
+				Vector3 center = (v0 + v1 + v2) / 3f;
 
-			//	Vector3 edge1 = v1 - v0;
-			//	Vector3 edge2 = v2 - v0;
-			//	Vector3 triNormal = Vector3.Cross(edge1, edge2).normalized;
-			//	triNormal = transform.TransformDirection(triNormal);
+				Vector3 edge1 = v1 - v0;
+				Vector3 edge2 = v2 - v0;
+				Vector3 triNormal = Vector3.Cross(edge1, edge2).normalized;
+				triNormal = transform.TransformDirection(triNormal);
 
-			//	Gizmos.DrawLine(center, center + triNormal * normalLength);
-			//}
+				Gizmos.DrawLine(center, center + triNormal * normalLength);
+			}
+		}
+
+		if (drawVertNormals)
+		{
+			MeshFilter mf = GetComponent<MeshFilter>();
+			if (mf == null || mf.sharedMesh == null)
+				return;
+
+			Mesh mesh = mf.sharedMesh;
+			Vector3[] vertices = mesh.vertices;
+			Vector3[] normals = mesh.normals;
+			int[] triangles = mesh.triangles;
+
+			Gizmos.color = normalColor;
 
 			for (int i = 0; i < normals.Length; ++i)
 			{
@@ -103,7 +118,7 @@ public class RotateObject : MonoBehaviour
 		}
 	}
 
-	void loadAABBsFromText(string resourcePath)
+		void loadAABBsFromText(string resourcePath)
 	{
 		Debug.Log(resourcePath);
 		TextAsset textAsset = Resources.Load<TextAsset>(resourcePath);

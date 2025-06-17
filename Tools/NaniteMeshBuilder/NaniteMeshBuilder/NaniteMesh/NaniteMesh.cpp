@@ -68,35 +68,73 @@ namespace nanite
 						groupMesh.Colors.emplace_back(srcMesh.Colors[triIdx]);
 					}
 				}
-				groupMesh.RemoveUnusedVertices();
-				simplifiedMeshes.emplace_back(SimplifyMesh(groupMesh, groupMesh.NumTriangles() / 2));
+
+				assert(groupMesh.IsManifold());
+				int targetTriCount = groupMesh.NumTriangles() / 2;
+				int outNumValidTriCount = -1;
+				simplifiedMeshes.emplace_back(SimplifyMesh(groupMesh, targetTriCount, &outNumValidTriCount, false));
 			}
 
 			// Create the integrated simplified meshes and
 			// Separate each simplified mesh into two clusters
 			Mesh& integratedMesh = mLODMeshes.emplace_back();
-			std::vector<std::vector<Cluster>> parentClusters;
-			for (Mesh& simplifiedMesh : simplifiedMeshes)
+			std::unordered_map<uint32_t, uint32_t> indexMap;
+			// Remove invalid vertices and remap indices
+			for (uint32_t i = 0; i < simplifiedMeshes[0].Vertices.size(); ++i)
 			{
+				bool bValid = true;
+				for (const Mesh& simplifiedMesh : simplifiedMeshes)
+				{
+					const FVector3& v = simplifiedMesh.Vertices[i];
+					if (v == INVALID_VERTEX)
+					{
+						bValid = false;
+						break;
+					}
+				}
+				if (bValid)
+				{
+					integratedMesh.Vertices.emplace_back(simplifiedMeshes[0].Vertices[i]);
+					indexMap[i] = static_cast<uint32_t>(integratedMesh.Vertices.size() - 1);
+				}
+			}
+
+			std::vector<std::vector<Cluster>> parentClusters;
+			for (const Mesh& simplifiedMesh : simplifiedMeshes)
+			{
+				int startNumTriangles = integratedMesh.NumTriangles();
+				// Fill the triangle informations
+				for (uint32_t triIdx = 0; triIdx < static_cast<uint32_t>(simplifiedMesh.NumTriangles()); ++triIdx)
+				{
+					auto indices = simplifiedMesh.GetTriangleIndices(triIdx);
+					if (indices == INVALID_TRIANGLE) continue;
+					auto [i0, i1, i2] = indices;
+					integratedMesh.Indices.emplace_back(indexMap[i0]);
+					integratedMesh.Indices.emplace_back(indexMap[i1]);
+					integratedMesh.Indices.emplace_back(indexMap[i2]);
+					integratedMesh.Normals.emplace_back(simplifiedMesh.Normals[triIdx]);
+					integratedMesh.Colors.emplace_back(simplifiedMesh.Colors[triIdx]);
+				}
+				int endNumTriangles = integratedMesh.NumTriangles();
 				// Separate simplified mesh into two clusters
-				std::vector<Cluster> subClusters = ClusterMesh(simplifiedMesh, leafTriThreshold);
+				std::vector<Cluster> subClusters = ClusterMesh(
+					integratedMesh.CreateSubMesh(startNumTriangles, endNumTriangles, false),
+					leafTriThreshold, 2);
+				// Set parent clusters buffer
 				for (Cluster& cluster : subClusters)
 				{
 					cluster.Mesh = &integratedMesh;
-					for (int& triIdx : cluster.Triangles) triIdx += integratedMesh.NumTriangles();
+					for (int& triIdx : cluster.Triangles) triIdx += startNumTriangles;
 				}
 				parentClusters.emplace_back(std::move(subClusters));
-				// Merge the simplified meshes
-				for (uint32_t& i : simplifiedMesh.Indices) i += integratedMesh.NumVertices();
-				integratedMesh.Vertices.insert(integratedMesh.Vertices.end(), simplifiedMesh.Vertices.begin(), simplifiedMesh.Vertices.end());
-				integratedMesh.Indices.insert(integratedMesh.Indices.end(), simplifiedMesh.Indices.begin(), simplifiedMesh.Indices.end());
-				integratedMesh.Normals.insert(integratedMesh.Normals.end(), simplifiedMesh.Normals.begin(), simplifiedMesh.Normals.end());
-				integratedMesh.Colors.insert(integratedMesh.Colors.end(), simplifiedMesh.Colors.begin(), simplifiedMesh.Colors.end());
 			}
-			integratedMesh.MergeDuplicatedVertices();
 
-			// If there's only one group, exit the loop
-			if (clusterGroups.size() == 1)
+			integratedMesh.ComputeNormals();
+
+			// If there's only one group or
+			// If lod mesh is non-manifold
+			// exit the loop
+			if (clusterGroups.size() == 1 || !integratedMesh.IsManifold())
 			{
 				Mesh& rootMesh = integratedMesh;
 				Cluster rootCluster;
@@ -153,6 +191,7 @@ namespace nanite
 
 	bool NaniteMesh::Save(const std::string& path) const
 	{
-
+		const NaniteNode& root = GetRootNode();
+		return true;
 	}
 }

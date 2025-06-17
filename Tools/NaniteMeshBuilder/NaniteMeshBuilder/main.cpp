@@ -16,9 +16,9 @@ int main(void)
 		//"../../../Resources/Sphere.obj",
 		"../../../Resources/SphereH.obj",
 		//"../../../Resources/Plane.obj",
-		//"../../../Resources/Dragon_8K.obj",
-		//"../../../Resources/Dragon_80K.obj",
-		//"../../../Resources/boguchi.glb"
+		"../../../Resources/Dragon_8K.obj",
+		"../../../Resources/Dragon_80K.obj",
+		"../../../Resources/boguchi.glb"
 	};
 
 	const int TARGET_LEAF_POLGON_COUNT = 128;

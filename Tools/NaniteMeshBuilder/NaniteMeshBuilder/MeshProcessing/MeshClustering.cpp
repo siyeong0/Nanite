@@ -200,11 +200,14 @@ namespace nanite
 		return resultClusters;
 	}
 
-	std::vector<Cluster> ClusterMesh(const Mesh& mesh, int maxNumTrianglesInCluster)
+	std::vector<Cluster> ClusterMesh(const Mesh& mesh, int maxNumTrianglesInCluster, int maxNumCluster)
 	{
-
 		float IMBALACNE_RATIO = 1.2f; // Allow 20% imbalance
 		int numPartitions = static_cast<int>(std::ceilf((float)mesh.NumTriangles() / maxNumTrianglesInCluster) * IMBALACNE_RATIO);
+		if (maxNumCluster >= 2)
+		{
+			numPartitions = std::max(numPartitions, maxNumCluster);
+		}
 		std::vector<Cluster> resultClusters;
 
 		if (numPartitions < 2)
@@ -249,12 +252,12 @@ namespace nanite
 			minAABBVolume = std::min(minAABBVolume, aabbVolume);
 		}
 
-		std::cout << "Clustering results:\n"
-			<< "  Number of clusters: " << resultClusters.size() << "\n"
-			<< "  Max cluster size: " << maxClusterSize << "\n"
-			<< "  Min cluster size: " << minClusterSize << "\n"
-			<< "  Max AABB volume: " << maxAABBVolume << "\n"
-			<< "  Min AABB volume: " << minAABBVolume << "\n\n";
+		//std::cout << "Clustering results:\n"
+		//	<< "  Number of clusters: " << resultClusters.size() << "\n"
+		//	<< "  Max cluster size: " << maxClusterSize << "\n"
+		//	<< "  Min cluster size: " << minClusterSize << "\n"
+		//	<< "  Max AABB volume: " << maxAABBVolume << "\n"
+		//	<< "  Min AABB volume: " << minAABBVolume << "\n\n";
 
 		return resultClusters;
 	}

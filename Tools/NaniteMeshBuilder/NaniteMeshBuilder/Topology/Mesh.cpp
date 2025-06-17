@@ -86,14 +86,13 @@ namespace nanite
 			std::set<uint32_t> indicesWithEdgeUsedTwiceTmp;
 			for (const auto& [edge, count] : edgeUsage)
 			{
-				//assert(count == 1 || count == 2);
+				assert(count == 1 || count == 2);
 				if (count == 1)
 				{
 					indicesWithEdgeUsedOnceTmp.emplace(edge.GetA());
 					indicesWithEdgeUsedOnceTmp.emplace(edge.GetB());
 				}
-				//else if (count == 2)
-				else
+				else if (count == 2)
 				{
 					indicesWithEdgeUsedTwiceTmp.emplace(edge.GetA());
 					indicesWithEdgeUsedTwiceTmp.emplace(edge.GetB());
@@ -132,7 +131,7 @@ namespace nanite
 				out << std::endl;
 			}
 
-			const float MERGE_THRESHOLD = 0.001f; // Distance threshold for merging vertices
+			const float MERGE_THRESHOLD = 0.0001f; // Distance threshold for merging vertices
 			std::vector<uint32_t> indicesWithEdgeUsedOnceBuf(indicesWithEdgeUsedOnce.begin(), indicesWithEdgeUsedOnce.end());
 			std::unordered_map<uint32_t, uint32_t> onceBufIndexMap;
 			for (int i = 0; i < indicesWithEdgeUsedOnceBuf.size(); ++i)
@@ -198,23 +197,92 @@ namespace nanite
 			Indices = std::move(mergedIndices);
 		}
 
+		std::unordered_map<Edge, int> edgeUsage;
+		for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
 		{
-			std::unordered_map<Edge, int> edgeUsage;
-			for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
+			auto [e0, e1, e2] = GetTriangleEdges(triIdx);
+			edgeUsage[e0]++;
+			edgeUsage[e1]++;
+			edgeUsage[e2]++;
+		}
+		std::unordered_set<Edge> edgesUsedOnce;
+		for (const auto& [edge, count] : edgeUsage)
+		{
+			assert(count <= 2);
+			if (count == 1)
 			{
-				auto [e0, e1, e2] = GetTriangleEdges(triIdx);
-				edgeUsage[e0]++;
-				edgeUsage[e1]++;
-				edgeUsage[e2]++;
+				edgesUsedOnce.emplace(edge);
 			}
-			for (const auto& [edge, count] : edgeUsage)
+		}
+		std::cout << std::endl;
+		std::vector<std::vector<uint32_t>> polygons;
+		while (edgesUsedOnce.size() > 0)
+		{
+			std::vector<uint32_t>& polygon = polygons.emplace_back();
+			auto beginIter = edgesUsedOnce.begin();
+			const Edge headEdge = *beginIter;
+			uint32_t head = headEdge.GetA();
+			uint32_t tail = headEdge.GetB();
+			polygon.emplace_back(head);
+			polygon.emplace_back(tail);
+			edgesUsedOnce.erase(beginIter);
+
+			bool bEnd = false;
+			while (!bEnd)
 			{
-				if (count == 1)
+				for (auto iter = edgesUsedOnce.begin(); iter != edgesUsedOnce.end(); ++iter)
 				{
-					std::cout << "Edge used once:" << "(" << edge.GetA() << "," << edge.GetB() << ")\n";
+					uint32_t a = iter->GetA();
+					uint32_t b = iter->GetB();
+					if (a == tail)
+					{
+						polygon.emplace_back(b);
+						edgesUsedOnce.erase(iter);
+						tail = b;
+						break;
+					}
+					else if (b == tail)
+					{
+						polygon.emplace_back(a);
+						edgesUsedOnce.erase(iter);
+						tail = a;
+						break;
+					}
+					bEnd = true;
 				}
 			}
-			std::cout << std::endl;
+
+			for (auto iter = edgesUsedOnce.begin(); iter != edgesUsedOnce.end(); ++iter)
+			{
+				uint32_t a = iter->GetA();
+				uint32_t b = iter->GetB();
+				if (a == head)
+				{
+					tail = head;
+					edgesUsedOnce.erase(iter);
+					break;
+				}
+				else if (b == head)
+				{
+					tail = head;
+					edgesUsedOnce.erase(iter);
+					break;
+				}
+			}
+			assert(head == tail);
+		}
+
+		// TODO: Define new function, trianglulation
+		for (const std::vector<uint32_t>& polygon : polygons)
+		{
+			Indices.emplace_back(polygon[0]);
+			Indices.emplace_back(polygon[1]);
+			Indices.emplace_back(polygon[2]);
+			Normals.emplace_back(utils::ComputeNormal(
+				Vertices[polygon[0]],
+				Vertices[polygon[1]],
+				Vertices[polygon[2]]));
+			Colors.emplace_back();
 		}
 	}
 
@@ -246,6 +314,97 @@ namespace nanite
 
 		Vertices = std::move(resultVertices);
 		Indices = std::move(resultIndices);
+	}
+
+	void Mesh::FillMissingFaces()
+	{
+		std::unordered_map<Edge, int> edgeUsage;
+		for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
+		{
+			auto [e0, e1, e2] = GetTriangleEdges(triIdx);
+			edgeUsage[e0]++;
+			edgeUsage[e1]++;
+			edgeUsage[e2]++;
+		}
+		std::unordered_set<Edge> edgesUsedOnce;
+		for (const auto& [edge, count] : edgeUsage)
+		{
+			assert(count <= 2);
+			if (count == 1)
+			{
+				edgesUsedOnce.emplace(edge);
+			}
+		}
+
+		std::vector<std::vector<uint32_t>> polygons;
+		while (edgesUsedOnce.size() > 0)
+		{
+			std::vector<uint32_t>& polygon = polygons.emplace_back();
+			auto beginIter = edgesUsedOnce.begin();
+			const Edge headEdge = *beginIter;
+			uint32_t head = headEdge.GetA();
+			uint32_t tail = headEdge.GetB();
+			polygon.emplace_back(head);
+			polygon.emplace_back(tail);
+			edgesUsedOnce.erase(beginIter);
+
+			bool bEnd = false;
+			while (!bEnd)
+			{
+				for (auto iter = edgesUsedOnce.begin(); iter != edgesUsedOnce.end(); ++iter)
+				{
+					uint32_t a = iter->GetA();
+					uint32_t b = iter->GetB();
+					if (a == tail)
+					{
+						polygon.emplace_back(b);
+						edgesUsedOnce.erase(iter);
+						tail = b;
+						break;
+					}
+					else if (b == tail)
+					{
+						polygon.emplace_back(a);
+						edgesUsedOnce.erase(iter);
+						tail = a;
+						break;
+					}
+					bEnd = true;
+				}
+			}
+
+			for (auto iter = edgesUsedOnce.begin(); iter != edgesUsedOnce.end(); ++iter)
+			{
+				uint32_t a = iter->GetA();
+				uint32_t b = iter->GetB();
+				if (a == head)
+				{
+					tail = head;
+					edgesUsedOnce.erase(iter);
+					break;
+				}
+				else if (b == head)
+				{
+					tail = head;
+					edgesUsedOnce.erase(iter);
+					break;
+				}
+			}
+			assert(head == tail);
+		}
+
+		// TODO: trianglulation
+		for (const std::vector<uint32_t>& polygon : polygons)
+		{
+			Indices.emplace_back(polygon[0]);
+			Indices.emplace_back(polygon[1]);
+			Indices.emplace_back(polygon[2]);
+			Normals.emplace_back(utils::ComputeNormal(
+				Vertices[polygon[0]],
+				Vertices[polygon[1]],
+				Vertices[polygon[2]]));
+			Colors.emplace_back();
+		}
 	}
 
 	std::vector<Mesh> Mesh::ExractUnconnectedMeshes(const Mesh& mesh)
@@ -327,6 +486,33 @@ namespace nanite
 		return connectedMeshes;
 	}
 
+	Mesh Mesh::CreateSubMesh(int startTriIdx, int endTriIdx, bool bRemoveUnusedVerts) const
+	{
+		Mesh subMesh;
+		subMesh.Vertices = Vertices;
+		int numTriangles = endTriIdx - startTriIdx;
+		subMesh.Indices.reserve(numTriangles * 3);
+		subMesh.Normals.reserve(numTriangles);
+		subMesh.Colors.reserve(numTriangles);
+
+		for (int triIdx = startTriIdx; triIdx < endTriIdx; ++triIdx)
+		{
+			auto [i0, i1, i2] = GetTriangleIndices(triIdx);
+			subMesh.Indices.emplace_back(i0);
+			subMesh.Indices.emplace_back(i1);
+			subMesh.Indices.emplace_back(i2);
+			subMesh.Normals.emplace_back(Normals[triIdx]);
+			subMesh.Colors.emplace_back(Colors[triIdx]);
+		}
+
+		if (bRemoveUnusedVerts)
+		{
+			subMesh.RemoveUnusedVertices();
+		}
+
+		return subMesh;
+	}
+
 	std::tuple<uint32_t&, uint32_t&, uint32_t&> Mesh::GetTriangleIndices(int index)
 	{
 		return std::tie(Indices[3 * index + 0], Indices[3 * index + 1], Indices[3 * index + 2]);
@@ -399,6 +585,8 @@ namespace nanite
 		}
 
 		MergeDuplicatedVertices();
+		FillMissingFaces();
+		RemoveUnusedVertices();
 
 		ComputeNormals();
 		Colors.resize(NumTriangles(), { 1.f, 1.f, 1.f });
@@ -695,5 +883,28 @@ namespace nanite
 		}
 
 		return dest;
+	}
+
+	bool Mesh::IsManifold() const
+	{
+		// Edge used more than twice
+		std::unordered_map<Edge, int> edgeUsage;
+		for (int triIdx = 0; triIdx < NumTriangles(); ++triIdx)
+		{
+			auto [e0, e1, e2] = GetTriangleEdges(triIdx);
+			edgeUsage[e0]++;
+			edgeUsage[e1]++;
+			edgeUsage[e2]++;
+		}
+		for (const auto& [edge, count] : edgeUsage)
+		{
+			if (count > 2)
+			{
+				// assert(false);
+				return false;
+			}
+		}
+
+		return true;
 	}
 }

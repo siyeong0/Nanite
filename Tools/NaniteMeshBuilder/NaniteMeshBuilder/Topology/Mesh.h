@@ -33,7 +33,10 @@ namespace nanite
 		void ComputeNormals();
 		void MergeDuplicatedVertices();
 		void RemoveUnusedVertices();
+		void FillMissingFaces();
 		static std::vector<Mesh> ExractUnconnectedMeshes(const Mesh& mesh);
+
+		Mesh CreateSubMesh(int startTriIdx, int endTriIdxm, bool bRemoveUnusedVerts = true) const;
 
 		std::tuple<uint32_t&, uint32_t&, uint32_t&> GetTriangleIndices(int index);
 		const std::tuple<const uint32_t&, const uint32_t&, const uint32_t&> GetTriangleIndices(int index) const;
@@ -50,6 +53,8 @@ namespace nanite
 		bool SaveToFile(const std::string& path, const std::string& format) const;
 		bool SaveToFile(const std::string& directory, const std::string& name, const std::string& format) const;
 		bool SaveToFileDbg(const std::string& directory, const std::string& name, const std::string& format) const;
+
+		bool IsManifold() const;
 
 	private:
 		static aiMaterial* deepCopyMaterial(const aiMaterial* src);

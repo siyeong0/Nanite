@@ -10,12 +10,8 @@
 namespace nanite
 {
 
-	Mesh SimplifyMesh(const Mesh& mesh, int targetTriangleCount)
+	Mesh SimplifyMesh(const Mesh& mesh, int targetTriangleCount, int* outNumValidTriangles, bool bOrganize)
 	{
-		// Constants
-		const FVector3 INVALID_VERTEX = FVector3{ std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-		const std::tuple<uint32_t, uint32_t, uint32_t> INVALID_TRIANGLE = std::make_tuple(std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max());
-
 		// Prepare buffers
 		Mesh srcMesh(mesh);
 
@@ -54,7 +50,7 @@ namespace nanite
 		std::set<uint32_t> boundaryVertIndices;
 		for (const auto& [edge, count] : edgeUsage)
 		{
-			//assert(count <= 2);
+			assert(count <= 2);
 			if (count == 1)
 			{
 				boundaryVertIndices.emplace(edge.GetA());
@@ -123,7 +119,7 @@ namespace nanite
 				removedTriangles.begin(), removedTriangles.end(),
 				std::inserter(updatedTriangles, updatedTriangles.begin()));
 
-			// Check for flipped triangles using normal vectors.
+			// Check for flipped and zero area triangles
 			for (const uint32_t updatedTriIdx : updatedTriangles)
 			{
 				const FVector3& oldNormal = srcMesh.Normals[updatedTriIdx];
@@ -133,10 +129,35 @@ namespace nanite
 				const FVector3& v1 = (i1 == removeIdx) || (i1 == keepIdx) ? optimalPosition : srcMesh.Vertices[i1];
 				const FVector3& v2 = (i2 == removeIdx) || (i2 == keepIdx) ? optimalPosition : srcMesh.Vertices[i2];
 				const FVector3 newNormal = utils::ComputeNormal(v0, v1, v2);
-				if (oldNormal.Dot(newNormal) < 1e-4f)
+				// compute area
+				float area = utils::ComputeArea(v0, v1, v2);
+				if (oldNormal.Dot(newNormal) < 0.1f || area < 1e-6f)
 				{
 					// If flipped triangle exists,
-					// exclude current best candidate
+					// Exclude current best candidate
+					collapseQueue.Erase(bestCandidate);
+					goto CONTINUE;
+				}
+			}
+
+			// Check that does merging cause non-manifolds
+			edgeUsage.clear();
+			for (const uint32_t updatedTriIdx : updatedTriangles)
+			{
+				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+				uint32_t ui0 = (i0 == removeIdx) ? keepIdx : i0;
+				uint32_t ui1 = (i1 == removeIdx) ? keepIdx : i1;
+				uint32_t ui2 = (i2 == removeIdx) ? keepIdx : i2;
+				edgeUsage[Edge(ui0, ui1)]++;
+				edgeUsage[Edge(ui1, ui2)]++;
+				edgeUsage[Edge(ui2, ui0)]++;
+			}
+			for (const auto& [edge, count] : edgeUsage)
+			{
+				if (count > 2)
+				{
+					// Edge belongs to over two triangles. It means mesh is non-manifold
+					// Exclude current best candidate
 					collapseQueue.Erase(bestCandidate);
 					goto CONTINUE;
 				}
@@ -256,62 +277,75 @@ namespace nanite
 		}
 
 		Mesh resultMesh;
-		resultMesh.Vertices.reserve(numValidVertices);
-		resultMesh.Indices.reserve(numValidTriangles * 3);
-		resultMesh.Normals.reserve(numValidTriangles);
-		resultMesh.Colors.reserve(numValidTriangles);
 
-		// Remove invalid vertices
-		std::unordered_map<uint32_t, uint32_t> vertIndexMap;
-		for (int i = 0; i < srcMesh.Vertices.size(); ++i)
+		if (!bOrganize)
 		{
-			const FVector3& v = srcMesh.Vertices[i];
-			if (v == INVALID_VERTEX) continue;
-			resultMesh.Vertices.emplace_back(v);
-			vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
+			resultMesh = srcMesh;
 		}
-
-		// Remove dubplicate and invalid triangles
-		struct UniqueTriangle
+		else
 		{
-			std::array<uint32_t, 3> Indices;
-			std::array<uint32_t, 3> SortedIndices;
-			int TriangleIndex = -1;
+			resultMesh.Vertices.reserve(numValidVertices);
+			resultMesh.Indices.reserve(numValidTriangles * 3);
+			resultMesh.Normals.reserve(numValidTriangles);
+			resultMesh.Colors.reserve(numValidTriangles);
 
-			UniqueTriangle(uint32_t i0, uint32_t i1, uint32_t i2, int triIdx)
-				: Indices({ i0, i1, i2 })
-				, SortedIndices({ i0, i1, i2 })
-				, TriangleIndex(triIdx)
+			// Remove invalid vertices
+			std::unordered_map<uint32_t, uint32_t> vertIndexMap;
+			for (int i = 0; i < srcMesh.Vertices.size(); ++i)
 			{
-				std::sort(SortedIndices.begin(), SortedIndices.end());
+				const FVector3& v = srcMesh.Vertices[i];
+				if (v == INVALID_VERTEX) continue;
+				resultMesh.Vertices.emplace_back(v);
+				vertIndexMap[i] = static_cast<uint32_t>(resultMesh.Vertices.size() - 1);
 			}
 
-			bool operator<(const UniqueTriangle& other) const
+			// Remove dubplicate and invalid triangles
+			struct UniqueTriangle
 			{
-				return SortedIndices < other.SortedIndices;
+				std::array<uint32_t, 3> Indices;
+				std::array<uint32_t, 3> SortedIndices;
+				int TriangleIndex = -1;
+
+				UniqueTriangle(uint32_t i0, uint32_t i1, uint32_t i2, int triIdx)
+					: Indices({ i0, i1, i2 })
+					, SortedIndices({ i0, i1, i2 })
+					, TriangleIndex(triIdx)
+				{
+					std::sort(SortedIndices.begin(), SortedIndices.end());
+				}
+
+				bool operator<(const UniqueTriangle& other) const
+				{
+					return SortedIndices < other.SortedIndices;
+				}
+			};
+
+			std::set<UniqueTriangle> uniqueTriangles;
+			for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
+			{
+				auto indices = srcMesh.GetTriangleIndices(triIdx);
+				if (indices == INVALID_TRIANGLE) continue;
+				auto [i0, i1, i2] = indices;
+				uniqueTriangles.insert(UniqueTriangle(
+					vertIndexMap[i0],
+					vertIndexMap[i1],
+					vertIndexMap[i2],
+					triIdx));
 			}
-		};
 
-		std::set<UniqueTriangle> uniqueTriangles;
-		for (int triIdx = 0; triIdx < srcMesh.NumTriangles(); ++triIdx)
-		{
-			auto indices = srcMesh.GetTriangleIndices(triIdx);
-			if (indices == INVALID_TRIANGLE) continue;
-			auto [i0, i1, i2] = indices;
-			uniqueTriangles.insert(UniqueTriangle(
-				vertIndexMap[i0], 
-				vertIndexMap[i1], 
-				vertIndexMap[i2], 
-				triIdx));
+			for (const UniqueTriangle& ut : uniqueTriangles)
+			{
+				resultMesh.Indices.emplace_back(ut.Indices[0]);
+				resultMesh.Indices.emplace_back(ut.Indices[1]);
+				resultMesh.Indices.emplace_back(ut.Indices[2]);
+				resultMesh.Normals.emplace_back(srcMesh.Normals[ut.TriangleIndex]);
+				resultMesh.Colors.emplace_back(srcMesh.Colors[ut.TriangleIndex]);
+			}
 		}
-
-		for (const UniqueTriangle& ut : uniqueTriangles)
+		
+		if (outNumValidTriangles)
 		{
-			resultMesh.Indices.emplace_back(ut.Indices[0]);
-			resultMesh.Indices.emplace_back(ut.Indices[1]);
-			resultMesh.Indices.emplace_back(ut.Indices[2]);
-			resultMesh.Normals.emplace_back(srcMesh.Normals[ut.TriangleIndex]);
-			resultMesh.Colors.emplace_back(srcMesh.Colors[ut.TriangleIndex]);
+			*outNumValidTriangles = numValidTriangles;
 		}
 
 		return resultMesh;
