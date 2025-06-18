@@ -55,7 +55,7 @@ namespace nanite
 			if (mEdgeToCollpaseMap.find(e) != mEdgeToCollpaseMap.end())
 			{
 				auto it = mEdgeToCollpaseMap[e];
-				int phase = it->Phase;
+				int phase = it->Phase + 1;
 				mEdgeToCollpaseMap.erase(e);
 				mCollapseSet.erase(it);
 				return phase;

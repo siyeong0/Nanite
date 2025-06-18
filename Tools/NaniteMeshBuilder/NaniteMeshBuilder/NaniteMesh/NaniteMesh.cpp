@@ -134,7 +134,8 @@ namespace nanite
 			// If there's only one group or
 			// If lod mesh is non-manifold
 			// exit the loop
-			if (clusterGroups.size() == 1 || !integratedMesh.IsManifold())
+			// if (clusterGroups.size() == 1 || !integratedMesh.IsManifold())
+			if (clusterGroups.size() < MAX_CLUSTERS_PER_GROUP)
 			{
 				Mesh& rootMesh = integratedMesh;
 				Cluster rootCluster;

@@ -82,6 +82,7 @@ namespace nanite
 			// Pick best one from priority queue
 			const Collapse& bestCandidate = collapseQueue.PickBest();
 			const FVector3 optimalPosition = bestCandidate.Position;
+			const Quadric mergedQuadric = bestCandidate.Quadric;
 			uint32_t keepIdx = bestCandidate.Edge.GetA();
 			uint32_t removeIdx = bestCandidate.Edge.GetB();
 			if (bestCandidate.bFixB)
@@ -193,17 +194,17 @@ namespace nanite
 			vertToTriMap.erase(removeIdx);
 
 			// Before updating vertices and triangles, update quadrics; Remove old planes
-			for (const uint32_t updatedTriIdx : updatedTrianglesTmp)
-			{
-				// Update quadrics
-				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
-				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
-				const FVector3& n = srcMesh.Normals[updatedTriIdx];
-				float d = -n.Dot(v0);
-				quadrics[i0].RemovePlane(n, d);
-				quadrics[i1].RemovePlane(n, d);
-				quadrics[i2].RemovePlane(n, d);
-			}
+			//for (const uint32_t updatedTriIdx : updatedTrianglesTmp)
+			//{
+			//	// Update quadrics
+			//	auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+			//	auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
+			//	const FVector3& n = srcMesh.Normals[updatedTriIdx];
+			//	float d = -n.Dot(v0);
+			//	quadrics[i0].RemovePlane(n, d);
+			//	quadrics[i1].RemovePlane(n, d);
+			//	quadrics[i2].RemovePlane(n, d);
+			//}
 
 			// Update vertices
 			srcMesh.Vertices[keepIdx] = optimalPosition;
@@ -227,20 +228,21 @@ namespace nanite
 				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
 				srcMesh.Normals[updatedTriIdx] = utils::ComputeNormal(v0, v1, v2);
 			}
-
+			// Upate quadrics
+			quadrics[keepIdx] = mergedQuadric;
 			// Update quadrics; add new planes
 			// after updating vertices and triangles
-			for (const uint32_t updatedTriIdx : updatedTriangles)
-			{
-				// update quadrics
-				auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
-				auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
-				const FVector3& n = srcMesh.Normals[updatedTriIdx];
-				float d = -n.Dot(v0);
-				quadrics[i0].AddPlane(n, d);
-				quadrics[i1].AddPlane(n, d);
-				quadrics[i2].AddPlane(n, d);
-			}
+			//for (const uint32_t updatedTriIdx : updatedTriangles)
+			//{
+			//	// update quadrics
+			//	auto [i0, i1, i2] = srcMesh.GetTriangleIndices(updatedTriIdx);
+			//	auto [v0, v1, v2] = srcMesh.GetTriangleVertices(updatedTriIdx);
+			//	const FVector3& n = srcMesh.Normals[updatedTriIdx];
+			//	float d = -n.Dot(v0);
+			//	quadrics[i0].AddPlane(n, d);
+			//	quadrics[i1].AddPlane(n, d);
+			//	quadrics[i2].AddPlane(n, d);
+			//}
 
 			// Collect affected edges
 			std::unordered_set<Edge> affectedEdges;
